@@ -2,95 +2,115 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
-All colors MUST be HSL.
-*/
+@import url('https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap');
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Academic professional palette */
+    --background: 210 25% 98%;
+    --foreground: 215 25% 15%;
 
     --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card-foreground: 215 25% 15%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover-foreground: 215 25% 15%;
 
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
+    /* Deep teal - trust & professionalism */
+    --primary: 195 65% 28%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    /* Warm gray */
+    --secondary: 210 15% 93%;
+    --secondary-foreground: 215 25% 25%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 210 15% 96%;
+    --muted-foreground: 215 15% 45%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    /* Soft amber accent */
+    --accent: 38 85% 55%;
+    --accent-foreground: 215 25% 15%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
+    /* Success green */
+    --success: 152 60% 40%;
+    --success-foreground: 0 0% 100%;
 
-    --radius: 0.5rem;
+    --border: 210 20% 88%;
+    --input: 210 20% 88%;
+    --ring: 195 65% 28%;
+
+    --radius: 0.625rem;
+
+    /* Custom tokens */
+    --progress-track: 210 15% 90%;
+    --progress-fill: 195 65% 28%;
+    --timer-bg: 38 85% 95%;
+    --timer-text: 38 85% 35%;
+    --consent-highlight: 195 65% 96%;
+    --admin-sidebar: 215 25% 12%;
+    --admin-sidebar-foreground: 210 15% 90%;
+
+    /* Typography */
+    --font-heading: 'Crimson Pro', Georgia, serif;
+    --font-body: 'Inter', system-ui, sans-serif;
+
+    /* Shadows */
+    --shadow-soft: 0 2px 8px -2px hsl(215 25% 15% / 0.08);
+    --shadow-card: 0 4px 20px -4px hsl(215 25% 15% / 0.1);
+    --shadow-elevated: 0 8px 30px -6px hsl(215 25% 15% / 0.15);
 
     --sidebar-background: 0 0% 98%;
-
     --sidebar-foreground: 240 5.3% 26.1%;
-
     --sidebar-primary: 240 5.9% 10%;
-
     --sidebar-primary-foreground: 0 0% 98%;
-
     --sidebar-accent: 240 4.8% 95.9%;
-
     --sidebar-accent-foreground: 240 5.9% 10%;
-
     --sidebar-border: 220 13% 91%;
-
     --sidebar-ring: 217.2 91.2% 59.8%;
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
+    --background: 215 25% 10%;
+    --foreground: 210 20% 95%;
 
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
+    --card: 215 25% 13%;
+    --card-foreground: 210 20% 95%;
 
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 215 25% 13%;
+    --popover-foreground: 210 20% 95%;
 
-    --primary: 210 40% 98%;
-    --primary-foreground: 222.2 47.4% 11.2%;
+    --primary: 195 55% 45%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 215 20% 20%;
+    --secondary-foreground: 210 20% 90%;
 
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
+    --muted: 215 20% 18%;
+    --muted-foreground: 215 15% 60%;
 
-    --accent: 217.2 32.6% 17.5%;
-    --accent-foreground: 210 40% 98%;
+    --accent: 38 75% 50%;
+    --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62% 45%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 212.7 26.8% 83.9%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --success: 152 50% 45%;
+    --success-foreground: 0 0% 100%;
+
+    --border: 215 20% 22%;
+    --input: 215 20% 22%;
+    --ring: 195 55% 45%;
+
+    --progress-track: 215 20% 20%;
+    --progress-fill: 195 55% 45%;
+    --timer-bg: 38 75% 15%;
+    --timer-text: 38 75% 70%;
+    --consent-highlight: 195 55% 15%;
+    --admin-sidebar: 215 30% 8%;
+    --admin-sidebar-foreground: 210 15% 85%;
   }
 }
 
@@ -100,6 +120,124 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-body);
   }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    @apply font-semibold tracking-tight;
+  }
+}
+
+@layer components {
+  .experiment-container {
+    @apply max-w-3xl mx-auto px-4 py-8 sm:px-6 lg:px-8;
+  }
+
+  .card-academic {
+    @apply bg-card rounded-xl border border-border p-6 sm:p-8;
+    box-shadow: var(--shadow-card);
+  }
+
+  .progress-step {
+    @apply flex items-center gap-2 text-sm font-medium text-muted-foreground;
+  }
+
+  .progress-step-active {
+    @apply text-primary;
+  }
+
+  .consent-text {
+    @apply max-w-none text-foreground/90 leading-relaxed text-sm;
+  }
+
+  .consent-text h2 {
+    @apply text-lg font-semibold text-foreground mt-6 mb-3;
+  }
+
+  .consent-text p {
+    @apply mb-4;
+  }
+
+  .consent-text ul {
+    @apply list-disc pl-5 mb-4 space-y-1;
+  }
+
+  .likert-scale {
+    @apply flex flex-wrap justify-between gap-2 mt-4;
+  }
+
+  .likert-option {
+    @apply flex-1 min-w-0 text-center px-2 py-3 rounded-lg border-2 border-border 
+           cursor-pointer transition-all duration-200 text-sm font-medium
+           hover:border-primary/50 hover:bg-primary/5;
+  }
+
+  .likert-option-selected {
+    @apply border-primary bg-primary/10 text-primary;
+  }
+
+  .timer-badge {
+    @apply inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium;
+    background: hsl(var(--timer-bg));
+    color: hsl(var(--timer-text));
+  }
+
+  .admin-nav-item {
+    @apply flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium
+           transition-colors duration-200 text-muted-foreground
+           hover:bg-muted hover:text-foreground;
+  }
+
+  .admin-nav-item-active {
+    @apply bg-primary/10 text-primary hover:bg-primary/15;
+  }
+
+  .fade-in {
+    animation: fadeIn 0.4s ease-out;
+  }
+
+  .slide-up {
+    animation: slideUp 0.5s ease-out;
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Custom scrollbar for consent text */
+.consent-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.consent-scroll::-webkit-scrollbar-track {
+  background: hsl(var(--muted));
+  border-radius: 3px;
+}
+
+.consent-scroll::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 3px;
+}
+
+.consent-scroll::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
 }
