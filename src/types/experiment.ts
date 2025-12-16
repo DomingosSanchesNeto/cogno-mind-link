@@ -7,6 +7,7 @@ export interface Participant {
   userAgent: string;
   screenResolution: string;
   currentStep: number;
+  tcleVersionTag?: string;
 }
 
 export interface SociodemographicData {
@@ -18,9 +19,20 @@ export interface SociodemographicData {
   aiExperience: boolean;
 }
 
+export interface TCLEConfig {
+  id: string;
+  content: string;
+  fileUrl?: string;
+  versionTag: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AUTStimulus {
   id: string;
   objectName: string;
+  objectImageUrl?: string;
   instructionText: string;
   suggestedTimeSeconds: number;
   displayOrder: number;
@@ -50,6 +62,9 @@ export interface EthicalDilemma {
 export interface AUTResponse {
   participantId: string;
   stimulusId: string;
+  objectName: string;
+  objectImageUrl?: string;
+  versionTag?: string;
   response: string;
   startedAt: string;
   submittedAt: string;
