@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Plus, Edit2, Trash2, GripVertical } from 'lucide-react';
+import { Plus, Edit2, Trash2, GripVertical, Upload, Link } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Switch } from '@/components/ui/switch';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,9 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { validateFile } from '@/lib/security';
 import type { AUTStimulus } from '@/types/experiment';
 
 // Mock data
@@ -21,6 +23,7 @@ const initialStimuli: AUTStimulus[] = [
   {
     id: '1',
     objectName: 'Tijolo',
+    objectImageUrl: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400',
     instructionText: 'Liste todos os usos alternativos que você consegue imaginar para um tijolo comum.',
     suggestedTimeSeconds: 180,
     displayOrder: 1,
@@ -30,6 +33,7 @@ const initialStimuli: AUTStimulus[] = [
   {
     id: '2',
     objectName: 'Clipe de Papel',
+    objectImageUrl: 'https://images.unsplash.com/photo-1527689368864-3a821dbccc34?w=400',
     instructionText: 'Liste todos os usos alternativos que você consegue imaginar para um clipe de papel.',
     suggestedTimeSeconds: 180,
     displayOrder: 2,
@@ -42,10 +46,12 @@ export default function AUTManagement() {
   const [stimuli, setStimuli] = useState<AUTStimulus[]>(initialStimuli);
   const [editingStimulus, setEditingStimulus] = useState<AUTStimulus | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [imageInputType, setImageInputType] = useState<'url' | 'upload'>('url');
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
     objectName: '',
+    objectImageUrl: '',
     instructionText: '',
     suggestedTimeSeconds: 180,
     versionTag: '',
@@ -57,6 +63,7 @@ export default function AUTManagement() {
       setEditingStimulus(stimulus);
       setFormData({
         objectName: stimulus.objectName,
+        objectImageUrl: stimulus.objectImageUrl || '',
         instructionText: stimulus.instructionText,
         suggestedTimeSeconds: stimulus.suggestedTimeSeconds,
         versionTag: stimulus.versionTag || '',
@@ -66,6 +73,7 @@ export default function AUTManagement() {
       setEditingStimulus(null);
       setFormData({
         objectName: '',
+        objectImageUrl: '',
         instructionText: '',
         suggestedTimeSeconds: 180,
         versionTag: '',
@@ -120,6 +128,21 @@ export default function AUTManagement() {
     );
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validation = validateFile(file, ['png', 'jpg', 'jpeg']);
+    if (!validation.valid) {
+      toast({ title: 'Erro', description: validation.error, variant: 'destructive' });
+      return;
+    }
+
+    const url = URL.createObjectURL(file);
+    setFormData({ ...formData, objectImageUrl: url });
+    toast({ title: 'Imagem selecionada.' });
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -138,7 +161,7 @@ export default function AUTManagement() {
               Novo Estímulo
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {editingStimulus ? 'Editar Estímulo' : 'Novo Estímulo AUT'}
@@ -156,6 +179,49 @@ export default function AUTManagement() {
                   placeholder="Ex: Tijolo"
                 />
               </div>
+
+              <div className="space-y-2">
+                <Label>Imagem do Objeto</Label>
+                <Tabs value={imageInputType} onValueChange={(v) => setImageInputType(v as 'url' | 'upload')}>
+                  <TabsList className="w-full">
+                    <TabsTrigger value="url" className="flex-1">
+                      <Link className="h-4 w-4 mr-2" />
+                      URL Externa
+                    </TabsTrigger>
+                    <TabsTrigger value="upload" className="flex-1">
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload
+                    </TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="url" className="mt-2">
+                    <Input
+                      value={formData.objectImageUrl}
+                      onChange={(e) =>
+                        setFormData({ ...formData, objectImageUrl: e.target.value })
+                      }
+                      placeholder="https://exemplo.com/imagem.jpg"
+                    />
+                  </TabsContent>
+                  <TabsContent value="upload" className="mt-2">
+                    <Input
+                      type="file"
+                      accept="image/png,image/jpeg"
+                      onChange={handleFileChange}
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">PNG ou JPG, máx. 5MB</p>
+                  </TabsContent>
+                </Tabs>
+                {formData.objectImageUrl && (
+                  <div className="mt-2 p-2 bg-muted rounded-lg">
+                    <img
+                      src={formData.objectImageUrl}
+                      alt="Preview"
+                      className="max-h-32 mx-auto rounded object-contain"
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="instructionText">Texto de Instrução *</Label>
                 <Textarea
@@ -227,6 +293,16 @@ export default function AUTManagement() {
                 <GripVertical className="h-5 w-5 cursor-move" />
                 <span className="text-sm font-medium w-6">{index + 1}</span>
               </div>
+
+              {stimulus.objectImageUrl && (
+                <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                  <img
+                    src={stimulus.objectImageUrl}
+                    alt={stimulus.objectName}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
 
               <div className="flex-1 min-w-0">
                 <h3 className="font-medium text-foreground">{stimulus.objectName}</h3>

@@ -22,7 +22,7 @@ export default function DilemmasScreen() {
 
   useEffect(() => {
     recordScreenStart('dilemmas');
-    setCurrentStep(5);
+    setCurrentStep(8);
   }, []);
 
   useEffect(() => {
