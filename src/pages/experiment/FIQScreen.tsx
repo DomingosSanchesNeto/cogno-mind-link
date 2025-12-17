@@ -21,7 +21,7 @@ export default function FIQScreen() {
 
   useEffect(() => {
     recordScreenStart('fiq');
-    setCurrentStep(4);
+    setCurrentStep(6);
   }, []);
 
   useEffect(() => {
@@ -47,7 +47,7 @@ export default function FIQScreen() {
 
     if (isLastStimulus) {
       recordScreenEnd('fiq');
-      navigate('/experimento/dilemas');
+      navigate('/experimento/intro-dilemas');
     } else {
       setCurrentIndex(prev => prev + 1);
     }

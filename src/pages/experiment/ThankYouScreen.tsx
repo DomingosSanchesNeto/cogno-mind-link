@@ -11,7 +11,7 @@ export default function ThankYouScreen() {
 
   useEffect(() => {
     recordScreenStart('thank_you');
-    setCurrentStep(6);
+    setCurrentStep(9);
     updateParticipantStatus('completed');
   }, []);
 

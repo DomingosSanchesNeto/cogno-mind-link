@@ -51,7 +51,7 @@ export default function SociodemographicScreen() {
   const onSubmit = (data: FormData) => {
     setSociodemographic(data as any);
     recordScreenEnd('sociodemographic');
-    navigate('/experimento/aut');
+    navigate('/experimento/intro-aut');
   };
 
   return (
