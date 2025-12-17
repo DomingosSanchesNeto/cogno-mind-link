@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Plus, Edit2, Trash2, GripVertical, Upload, Link } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Edit2, Trash2, GripVertical, Upload, Link, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -15,38 +15,17 @@ import {
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { useAUTStimuli, uploadToStorage } from '@/hooks/useSupabaseData';
 import { validateFile } from '@/lib/security';
 import type { AUTStimulus } from '@/types/experiment';
 
-// Mock data
-const initialStimuli: AUTStimulus[] = [
-  {
-    id: '1',
-    objectName: 'Tijolo',
-    objectImageUrl: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=400',
-    instructionText: 'Liste todos os usos alternativos que você consegue imaginar para um tijolo comum.',
-    suggestedTimeSeconds: 180,
-    displayOrder: 1,
-    versionTag: 'AUT_v1.0',
-    isActive: true,
-  },
-  {
-    id: '2',
-    objectName: 'Clipe de Papel',
-    objectImageUrl: 'https://images.unsplash.com/photo-1527689368864-3a821dbccc34?w=400',
-    instructionText: 'Liste todos os usos alternativos que você consegue imaginar para um clipe de papel.',
-    suggestedTimeSeconds: 180,
-    displayOrder: 2,
-    versionTag: 'AUT_v1.0',
-    isActive: true,
-  },
-];
-
 export default function AUTManagement() {
-  const [stimuli, setStimuli] = useState<AUTStimulus[]>(initialStimuli);
+  const { stimuli, loading, fetchStimuli, saveStimulus, deleteStimulus } = useAUTStimuli();
   const [editingStimulus, setEditingStimulus] = useState<AUTStimulus | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [imageInputType, setImageInputType] = useState<'url' | 'upload'>('url');
+  const [saving, setSaving] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -80,10 +59,11 @@ export default function AUTManagement() {
         isActive: true,
       });
     }
+    setPendingFile(null);
     setIsDialogOpen(true);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.objectName.trim() || !formData.instructionText.trim()) {
       toast({
         title: 'Erro',
@@ -93,39 +73,60 @@ export default function AUTManagement() {
       return;
     }
 
-    if (editingStimulus) {
-      setStimuli(prev =>
-        prev.map(s =>
-          s.id === editingStimulus.id
-            ? { ...s, ...formData }
-            : s
-        )
-      );
-      toast({ title: 'Estímulo atualizado com sucesso!' });
-    } else {
-      const newStimulus: AUTStimulus = {
-        id: Date.now().toString(),
-        ...formData,
-        displayOrder: stimuli.length + 1,
-      };
-      setStimuli(prev => [...prev, newStimulus]);
-      toast({ title: 'Estímulo criado com sucesso!' });
+    setSaving(true);
+
+    try {
+      let imageUrl = formData.objectImageUrl;
+
+      if (pendingFile) {
+        const uploadedUrl = await uploadToStorage(pendingFile, 'aut-images');
+        if (uploadedUrl) {
+          imageUrl = uploadedUrl;
+        } else {
+          toast({ title: 'Erro', description: 'Falha ao enviar imagem.', variant: 'destructive' });
+          setSaving(false);
+          return;
+        }
+      }
+
+      const { error } = await saveStimulus({
+        id: editingStimulus?.id,
+        objectName: formData.objectName,
+        objectImageUrl: imageUrl || undefined,
+        instructionText: formData.instructionText,
+        suggestedTimeSeconds: formData.suggestedTimeSeconds,
+        displayOrder: editingStimulus?.displayOrder || stimuli.length + 1,
+        versionTag: formData.versionTag || undefined,
+        isActive: formData.isActive,
+      });
+
+      if (error) {
+        toast({ title: 'Erro', description: 'Falha ao salvar estímulo.', variant: 'destructive' });
+      } else {
+        toast({ title: editingStimulus ? 'Estímulo atualizado!' : 'Estímulo criado!' });
+        setIsDialogOpen(false);
+        fetchStimuli();
+      }
+    } catch (err) {
+      toast({ title: 'Erro', description: 'Erro inesperado.', variant: 'destructive' });
     }
 
-    setIsDialogOpen(false);
+    setSaving(false);
   };
 
-  const handleDelete = (id: string) => {
-    setStimuli(prev => prev.filter(s => s.id !== id));
-    toast({ title: 'Estímulo removido.' });
+  const handleDelete = async (id: string) => {
+    const { error } = await deleteStimulus(id);
+    if (error) {
+      toast({ title: 'Erro', description: 'Falha ao remover.', variant: 'destructive' });
+    } else {
+      toast({ title: 'Estímulo removido.' });
+      fetchStimuli();
+    }
   };
 
-  const toggleActive = (id: string) => {
-    setStimuli(prev =>
-      prev.map(s =>
-        s.id === id ? { ...s, isActive: !s.isActive } : s
-      )
-    );
+  const toggleActive = async (stimulus: AUTStimulus) => {
+    await saveStimulus({ ...stimulus, isActive: !stimulus.isActive });
+    fetchStimuli();
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -138,10 +139,18 @@ export default function AUTManagement() {
       return;
     }
 
-    const url = URL.createObjectURL(file);
-    setFormData({ ...formData, objectImageUrl: url });
+    setPendingFile(file);
+    setFormData({ ...formData, objectImageUrl: URL.createObjectURL(file) });
     toast({ title: 'Imagem selecionada.' });
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -173,9 +182,7 @@ export default function AUTManagement() {
                 <Input
                   id="objectName"
                   value={formData.objectName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, objectName: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, objectName: e.target.value })}
                   placeholder="Ex: Tijolo"
                 />
               </div>
@@ -196,28 +203,18 @@ export default function AUTManagement() {
                   <TabsContent value="url" className="mt-2">
                     <Input
                       value={formData.objectImageUrl}
-                      onChange={(e) =>
-                        setFormData({ ...formData, objectImageUrl: e.target.value })
-                      }
+                      onChange={(e) => setFormData({ ...formData, objectImageUrl: e.target.value })}
                       placeholder="https://exemplo.com/imagem.jpg"
                     />
                   </TabsContent>
                   <TabsContent value="upload" className="mt-2">
-                    <Input
-                      type="file"
-                      accept="image/png,image/jpeg"
-                      onChange={handleFileChange}
-                    />
+                    <Input type="file" accept="image/png,image/jpeg" onChange={handleFileChange} />
                     <p className="text-xs text-muted-foreground mt-1">PNG ou JPG, máx. 5MB</p>
                   </TabsContent>
                 </Tabs>
                 {formData.objectImageUrl && (
                   <div className="mt-2 p-2 bg-muted rounded-lg">
-                    <img
-                      src={formData.objectImageUrl}
-                      alt="Preview"
-                      className="max-h-32 mx-auto rounded object-contain"
-                    />
+                    <img src={formData.objectImageUrl} alt="Preview" className="max-h-32 mx-auto rounded object-contain" />
                   </div>
                 )}
               </div>
@@ -227,9 +224,7 @@ export default function AUTManagement() {
                 <Textarea
                   id="instructionText"
                   value={formData.instructionText}
-                  onChange={(e) =>
-                    setFormData({ ...formData, instructionText: e.target.value })
-                  }
+                  onChange={(e) => setFormData({ ...formData, instructionText: e.target.value })}
                   placeholder="Liste todos os usos alternativos..."
                   rows={3}
                 />
@@ -241,12 +236,7 @@ export default function AUTManagement() {
                     id="time"
                     type="number"
                     value={formData.suggestedTimeSeconds}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        suggestedTimeSeconds: parseInt(e.target.value) || 180,
-                      })
-                    }
+                    onChange={(e) => setFormData({ ...formData, suggestedTimeSeconds: parseInt(e.target.value) || 180 })}
                   />
                 </div>
                 <div className="space-y-2">
@@ -254,9 +244,7 @@ export default function AUTManagement() {
                   <Input
                     id="version"
                     value={formData.versionTag}
-                    onChange={(e) =>
-                      setFormData({ ...formData, versionTag: e.target.value })
-                    }
+                    onChange={(e) => setFormData({ ...formData, versionTag: e.target.value })}
                     placeholder="Ex: AUT_v1.0"
                   />
                 </div>
@@ -266,80 +254,70 @@ export default function AUTManagement() {
                 <Switch
                   id="active"
                   checked={formData.isActive}
-                  onCheckedChange={(checked) =>
-                    setFormData({ ...formData, isActive: checked })
-                  }
+                  onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
                 />
               </div>
             </div>
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancelar
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Salvar
               </Button>
-              <Button onClick={handleSave}>Salvar</Button>
             </div>
           </DialogContent>
         </Dialog>
       </div>
 
-      <div className="space-y-3">
-        {stimuli.map((stimulus, index) => (
-          <Card
-            key={stimulus.id}
-            className={!stimulus.isActive ? 'opacity-60' : ''}
-          >
-            <CardContent className="flex items-center gap-4 p-4">
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <GripVertical className="h-5 w-5 cursor-move" />
-                <span className="text-sm font-medium w-6">{index + 1}</span>
-              </div>
-
-              {stimulus.objectImageUrl && (
-                <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
-                  <img
-                    src={stimulus.objectImageUrl}
-                    alt={stimulus.objectName}
-                    className="w-full h-full object-cover"
-                  />
+      {stimuli.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+            <p>Nenhum estímulo cadastrado.</p>
+            <Button variant="outline" className="mt-4" onClick={() => handleOpenDialog()}>
+              <Plus className="h-4 w-4 mr-2" />
+              Adicionar primeiro estímulo
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {stimuli.map((stimulus, index) => (
+            <Card key={stimulus.id} className={!stimulus.isActive ? 'opacity-60' : ''}>
+              <CardContent className="flex items-center gap-4 p-4">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <GripVertical className="h-5 w-5 cursor-move" />
+                  <span className="text-sm font-medium w-6">{index + 1}</span>
                 </div>
-              )}
 
-              <div className="flex-1 min-w-0">
-                <h3 className="font-medium text-foreground">{stimulus.objectName}</h3>
-                <p className="text-sm text-muted-foreground truncate">
-                  {stimulus.instructionText}
-                </p>
-                <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                  <span>{Math.floor(stimulus.suggestedTimeSeconds / 60)} min</span>
-                  {stimulus.versionTag && <span>• {stimulus.versionTag}</span>}
+                {stimulus.objectImageUrl && (
+                  <div className="w-16 h-16 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                    <img src={stimulus.objectImageUrl} alt={stimulus.objectName} className="w-full h-full object-cover" />
+                  </div>
+                )}
+
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-medium text-foreground">{stimulus.objectName}</h3>
+                  <p className="text-sm text-muted-foreground truncate">{stimulus.instructionText}</p>
+                  <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                    <span>{Math.floor(stimulus.suggestedTimeSeconds / 60)} min</span>
+                    {stimulus.versionTag && <span>• {stimulus.versionTag}</span>}
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex items-center gap-2">
-                <Switch
-                  checked={stimulus.isActive}
-                  onCheckedChange={() => toggleActive(stimulus.id)}
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleOpenDialog(stimulus)}
-                >
-                  <Edit2 className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => handleDelete(stimulus.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                <div className="flex items-center gap-2">
+                  <Switch checked={stimulus.isActive} onCheckedChange={() => toggleActive(stimulus)} />
+                  <Button variant="ghost" size="icon" onClick={() => handleOpenDialog(stimulus)}>
+                    <Edit2 className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDelete(stimulus.id)}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

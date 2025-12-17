@@ -1,24 +1,49 @@
-import { Users, CheckCircle2, XCircle, Clock, TrendingUp } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { Users, CheckCircle2, XCircle, Clock, TrendingUp, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-
-// Mock data - will be replaced with real data from Supabase
-const mockStats = {
-  total: 127,
-  completed: 89,
-  inProgress: 23,
-  declined: 15,
-};
-
-const mockRecentActivity = [
-  { id: 1, status: 'completed', timestamp: '2024-01-15 14:32' },
-  { id: 2, status: 'completed', timestamp: '2024-01-15 14:18' },
-  { id: 3, status: 'in_progress', timestamp: '2024-01-15 14:05' },
-  { id: 4, status: 'declined', timestamp: '2024-01-15 13:52' },
-  { id: 5, status: 'completed', timestamp: '2024-01-15 13:41' },
-];
+import { supabase } from '@/integrations/supabase/client';
 
 export default function Dashboard() {
-  const completionRate = ((mockStats.completed / mockStats.total) * 100).toFixed(1);
+  const [stats, setStats] = useState({ total: 0, completed: 0, inProgress: 0, declined: 0 });
+  const [recentActivity, setRecentActivity] = useState<Array<{ id: string; status: string; timestamp: string }>>([]);
+  const [loading, setLoading] = useState(true);
+
+  const fetchStats = useCallback(async () => {
+    setLoading(true);
+    try {
+      const adminPassword = sessionStorage.getItem('adminPassword') || 'admin123';
+      
+      const { data, error } = await supabase.functions.invoke('admin-api', {
+        body: { action: 'stats', password: adminPassword },
+      });
+
+      if (error) throw error;
+
+      if (data?.stats) {
+        setStats(data.stats);
+      }
+      if (data?.recentActivity) {
+        setRecentActivity(data.recentActivity);
+      }
+    } catch (err) {
+      console.error('Failed to fetch stats:', err);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  const completionRate = stats.total > 0 ? ((stats.completed / stats.total) * 100).toFixed(1) : '0';
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -29,7 +54,6 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* Stats Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -39,7 +63,7 @@ export default function Dashboard() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-foreground">{mockStats.total}</div>
+            <div className="text-3xl font-bold text-foreground">{stats.total}</div>
           </CardContent>
         </Card>
 
@@ -48,10 +72,10 @@ export default function Dashboard() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Concluídos
             </CardTitle>
-            <CheckCircle2 className="h-4 w-4 text-success" />
+            <CheckCircle2 className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-success">{mockStats.completed}</div>
+            <div className="text-3xl font-bold text-green-500">{stats.completed}</div>
             <p className="text-xs text-muted-foreground mt-1">
               {completionRate}% taxa de conclusão
             </p>
@@ -63,10 +87,10 @@ export default function Dashboard() {
             <CardTitle className="text-sm font-medium text-muted-foreground">
               Em Andamento
             </CardTitle>
-            <Clock className="h-4 w-4 text-accent" />
+            <Clock className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-foreground">{mockStats.inProgress}</div>
+            <div className="text-3xl font-bold text-foreground">{stats.inProgress}</div>
           </CardContent>
         </Card>
 
@@ -78,12 +102,11 @@ export default function Dashboard() {
             <XCircle className="h-4 w-4 text-destructive" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-destructive">{mockStats.declined}</div>
+            <div className="text-3xl font-bold text-destructive">{stats.declined}</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent Activity */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
@@ -92,32 +115,38 @@ export default function Dashboard() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="space-y-3">
-            {mockRecentActivity.map((activity) => (
-              <div
-                key={activity.id}
-                className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-              >
-                <div className="flex items-center gap-3">
-                  {activity.status === 'completed' && (
-                    <CheckCircle2 className="h-5 w-5 text-success" />
-                  )}
-                  {activity.status === 'in_progress' && (
-                    <Clock className="h-5 w-5 text-accent" />
-                  )}
-                  {activity.status === 'declined' && (
-                    <XCircle className="h-5 w-5 text-destructive" />
-                  )}
-                  <span className="text-sm text-foreground">
-                    Participante #{activity.id}
+          {recentActivity.length === 0 ? (
+            <p className="text-muted-foreground text-center py-8">
+              Nenhuma atividade recente.
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {recentActivity.map((activity) => (
+                <div
+                  key={activity.id}
+                  className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                >
+                  <div className="flex items-center gap-3">
+                    {activity.status === 'completed' && (
+                      <CheckCircle2 className="h-5 w-5 text-green-500" />
+                    )}
+                    {activity.status === 'in_progress' && (
+                      <Clock className="h-5 w-5 text-yellow-500" />
+                    )}
+                    {activity.status === 'declined' && (
+                      <XCircle className="h-5 w-5 text-destructive" />
+                    )}
+                    <span className="text-sm text-foreground">
+                      Participante
+                    </span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(activity.timestamp).toLocaleString('pt-BR')}
                   </span>
                 </div>
-                <span className="text-xs text-muted-foreground">
-                  {activity.timestamp}
-                </span>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

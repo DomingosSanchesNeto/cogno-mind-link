@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Save, Upload, Link, FileText, Eye } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Save, Upload, Link, FileText, Eye, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -8,8 +8,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useExperiment } from '@/contexts/ExperimentContext';
-import { validateFile, sanitizeText } from '@/lib/security';
+import { useTCLE, uploadToStorage } from '@/hooks/useSupabaseData';
+import { validateFile } from '@/lib/security';
 import {
   Dialog,
   DialogContent,
@@ -19,17 +19,30 @@ import {
 } from '@/components/ui/dialog';
 
 export default function TCLEManagement() {
-  const { tcleConfig, setTcleConfig } = useExperiment();
+  const { tcle, loading, saveTCLE, fetchActiveTCLE } = useTCLE();
   const { toast } = useToast();
   const [fileInputType, setFileInputType] = useState<'url' | 'upload'>('url');
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const [formData, setFormData] = useState({
-    content: tcleConfig?.content || '',
-    fileUrl: tcleConfig?.fileUrl || '',
-    versionTag: tcleConfig?.versionTag || 'TCLE_v1.0',
-    isActive: tcleConfig?.isActive ?? true,
+    content: '',
+    fileUrl: '',
+    versionTag: 'TCLE_v1.0',
+    isActive: true,
   });
+
+  useEffect(() => {
+    if (tcle) {
+      setFormData({
+        content: tcle.content,
+        fileUrl: tcle.fileUrl || '',
+        versionTag: tcle.versionTag,
+        isActive: tcle.isActive,
+      });
+    }
+  }, [tcle]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -46,13 +59,11 @@ export default function TCLEManagement() {
       return;
     }
 
-    // In production, upload to storage and get URL
-    const url = URL.createObjectURL(file);
-    setFormData({ ...formData, fileUrl: url });
+    setPendingFile(file);
     toast({ title: 'Arquivo selecionado. Será enviado ao salvar.' });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!formData.content.trim()) {
       toast({
         title: 'Erro',
@@ -71,20 +82,64 @@ export default function TCLEManagement() {
       return;
     }
 
-    const sanitizedContent = sanitizeText(formData.content);
+    setSaving(true);
 
-    setTcleConfig({
-      id: tcleConfig?.id || Date.now().toString(),
-      content: formData.content, // Keep original for display, sanitize on output
-      fileUrl: formData.fileUrl || undefined,
-      versionTag: formData.versionTag,
-      isActive: formData.isActive,
-      createdAt: tcleConfig?.createdAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
+    try {
+      let fileUrl = formData.fileUrl;
 
-    toast({ title: 'TCLE salvo com sucesso!' });
+      // Upload file if pending
+      if (pendingFile) {
+        const uploadedUrl = await uploadToStorage(pendingFile, 'tcle');
+        if (uploadedUrl) {
+          fileUrl = uploadedUrl;
+        } else {
+          toast({
+            title: 'Erro no upload',
+            description: 'Falha ao enviar o arquivo.',
+            variant: 'destructive',
+          });
+          setSaving(false);
+          return;
+        }
+      }
+
+      const { error } = await saveTCLE({
+        id: tcle?.id,
+        content: formData.content,
+        fileUrl: fileUrl || undefined,
+        versionTag: formData.versionTag,
+        isActive: formData.isActive,
+      });
+
+      if (error) {
+        toast({
+          title: 'Erro',
+          description: 'Falha ao salvar o TCLE.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({ title: 'TCLE salvo com sucesso!' });
+        setPendingFile(null);
+        fetchActiveTCLE();
+      }
+    } catch (err) {
+      toast({
+        title: 'Erro',
+        description: 'Erro inesperado ao salvar.',
+        variant: 'destructive',
+      });
+    }
+
+    setSaving(false);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -118,7 +173,6 @@ export default function TCLEManagement() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Main Content */}
         <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -133,26 +187,15 @@ export default function TCLEManagement() {
             <Textarea
               value={formData.content}
               onChange={(e) => setFormData({ ...formData, content: e.target.value })}
-              placeholder="Digite o texto completo do TCLE aqui...
-
-## TERMO DE CONSENTIMENTO LIVRE E ESCLARECIDO
-
-### Título da Pesquisa
-[Nome da pesquisa]
-
-### Pesquisador Responsável
-[Nome e contato]
-
-..."
+              placeholder="Digite o texto completo do TCLE aqui..."
               className="min-h-[400px] font-mono text-sm"
             />
             <p className="text-xs text-muted-foreground mt-2">
-              Use ## para títulos e ### para subtítulos. O texto será formatado automaticamente.
+              Use ## para títulos e ### para subtítulos.
             </p>
           </CardContent>
         </Card>
 
-        {/* Settings */}
         <div className="space-y-6">
           <Card>
             <CardHeader>
@@ -222,16 +265,20 @@ export default function TCLEManagement() {
                   </p>
                 </TabsContent>
               </Tabs>
-              {formData.fileUrl && (
+              {(formData.fileUrl || pendingFile) && (
                 <div className="mt-3 p-2 bg-muted rounded text-xs text-muted-foreground truncate">
-                  {formData.fileUrl}
+                  {pendingFile ? pendingFile.name : formData.fileUrl}
                 </div>
               )}
             </CardContent>
           </Card>
 
-          <Button onClick={handleSave} className="w-full h-12">
-            <Save className="h-4 w-4 mr-2" />
+          <Button onClick={handleSave} className="w-full h-12" disabled={saving}>
+            {saving ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
             Salvar TCLE
           </Button>
         </div>
