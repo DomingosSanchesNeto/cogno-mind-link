@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 
 export default function AdminLogin() {
@@ -12,6 +13,7 @@ export default function AdminLogin() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { login } = useAdminAuth();
 
   // Temporary password for demo - in production, use proper auth
   const DEMO_PASSWORD = 'admin123';
@@ -24,8 +26,7 @@ export default function AdminLogin() {
     await new Promise(resolve => setTimeout(resolve, 500));
 
     if (password === DEMO_PASSWORD) {
-      // In production, set a proper auth token/session
-      sessionStorage.setItem('admin_authenticated', 'true');
+      login(password);
       navigate('/admin');
     } else {
       toast({

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, GripVertical, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,11 @@ export default function DilemmasManagement() {
     versionTag: '',
     isActive: true,
   });
+
+  // Fetch all dilemmas (including inactive) for admin view
+  useEffect(() => {
+    fetchDilemmas(false);
+  }, []);
 
   const handleOpenDialog = (dilemma?: EthicalDilemma) => {
     if (dilemma) {
@@ -72,7 +77,7 @@ export default function DilemmasManagement() {
       } else {
         toast({ title: editingDilemma ? 'Dilema atualizado!' : 'Dilema criado!' });
         setIsDialogOpen(false);
-        fetchDilemmas();
+        fetchDilemmas(false);
       }
     } catch (err) {
       toast({ title: 'Erro', description: 'Erro inesperado.', variant: 'destructive' });
@@ -87,13 +92,13 @@ export default function DilemmasManagement() {
       toast({ title: 'Erro', description: 'Falha ao remover.', variant: 'destructive' });
     } else {
       toast({ title: 'Dilema removido.' });
-      fetchDilemmas();
+      fetchDilemmas(false);
     }
   };
 
   const toggleActive = async (dilemma: EthicalDilemma) => {
     await saveDilemma({ ...dilemma, isActive: !dilemma.isActive });
-    fetchDilemmas();
+    fetchDilemmas(false);
   };
 
   if (loading) {

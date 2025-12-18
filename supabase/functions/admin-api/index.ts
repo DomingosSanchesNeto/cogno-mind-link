@@ -17,9 +17,9 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { action, password, format, selectedData } = await req.json();
+    const { action, password, format, selectedData, data, id } = await req.json();
 
-    // Simple admin password check (in production, use proper auth)
+    // Simple admin password check
     const adminPassword = Deno.env.get('ADMIN_PASSWORD') || 'admin123';
     if (password !== adminPassword) {
       return new Response(
@@ -28,8 +28,8 @@ serve(async (req) => {
       );
     }
 
+    // ============ STATS ============
     if (action === 'stats') {
-      // Get participant stats
       const { data: participants, error } = await supabase
         .from('participants')
         .select('id, status, started_at');
@@ -43,7 +43,6 @@ serve(async (req) => {
         declined: participants?.filter(p => p.status === 'declined').length || 0,
       };
 
-      // Get recent activity
       const { data: recentData } = await supabase
         .from('participants')
         .select('id, status, started_at')
@@ -62,6 +61,7 @@ serve(async (req) => {
       );
     }
 
+    // ============ EXPORT ============
     if (action === 'export') {
       const exportData: Record<string, unknown[]> = {};
 
@@ -96,7 +96,6 @@ serve(async (req) => {
       }
 
       if (format === 'csv') {
-        // Convert to CSV format
         const csvSections: string[] = [];
         
         for (const [key, rows] of Object.entries(exportData)) {
@@ -119,6 +118,187 @@ serve(async (req) => {
         JSON.stringify(exportData, null, 2),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // ============ TCLE CRUD ============
+    if (action === 'tcle-list') {
+      const { data, error } = await supabase
+        .from('tcle_config')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return new Response(JSON.stringify({ data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (action === 'tcle-save') {
+      // Deactivate all if this one is active
+      if (data.is_active) {
+        await supabase.from('tcle_config').update({ is_active: false }).eq('is_active', true);
+      }
+
+      let result;
+      if (id) {
+        result = await supabase.from('tcle_config')
+          .update({
+            content: data.content,
+            file_url: data.file_url,
+            version_tag: data.version_tag,
+            is_active: data.is_active,
+          })
+          .eq('id', id)
+          .select()
+          .single();
+      } else {
+        result = await supabase.from('tcle_config')
+          .insert({
+            content: data.content,
+            file_url: data.file_url,
+            version_tag: data.version_tag,
+            is_active: data.is_active,
+          })
+          .select()
+          .single();
+      }
+
+      if (result.error) throw result.error;
+      return new Response(JSON.stringify({ data: result.data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // ============ AUT STIMULI CRUD ============
+    if (action === 'aut-list') {
+      const { data, error } = await supabase
+        .from('aut_stimuli')
+        .select('*')
+        .order('display_order');
+      
+      if (error) throw error;
+      return new Response(JSON.stringify({ data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (action === 'aut-save') {
+      const payload = {
+        object_name: data.object_name,
+        instruction_text: data.instruction_text,
+        image_url: data.image_url,
+        suggested_time_seconds: data.suggested_time_seconds || 180,
+        display_order: data.display_order || 0,
+        version_tag: data.version_tag,
+        is_active: data.is_active ?? true,
+      };
+
+      let result;
+      if (id) {
+        result = await supabase.from('aut_stimuli').update(payload).eq('id', id).select().single();
+      } else {
+        result = await supabase.from('aut_stimuli').insert(payload).select().single();
+      }
+
+      if (result.error) throw result.error;
+      return new Response(JSON.stringify({ data: result.data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (action === 'aut-delete') {
+      const { error } = await supabase.from('aut_stimuli').delete().eq('id', id);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // ============ FIQ STIMULI CRUD ============
+    if (action === 'fiq-list') {
+      const { data, error } = await supabase
+        .from('fiq_stimuli')
+        .select('*')
+        .order('display_order');
+      
+      if (error) throw error;
+      return new Response(JSON.stringify({ data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (action === 'fiq-save') {
+      const payload = {
+        title: data.title,
+        image_url: data.image_url,
+        question_text: data.question_text,
+        display_order: data.display_order || 0,
+        version_tag: data.version_tag,
+        is_active: data.is_active ?? true,
+      };
+
+      let result;
+      if (id) {
+        result = await supabase.from('fiq_stimuli').update(payload).eq('id', id).select().single();
+      } else {
+        result = await supabase.from('fiq_stimuli').insert(payload).select().single();
+      }
+
+      if (result.error) throw result.error;
+      return new Response(JSON.stringify({ data: result.data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (action === 'fiq-delete') {
+      const { error } = await supabase.from('fiq_stimuli').delete().eq('id', id);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // ============ DILEMMAS CRUD ============
+    if (action === 'dilemmas-list') {
+      const { data, error } = await supabase
+        .from('ethical_dilemmas')
+        .select('*')
+        .order('display_order');
+      
+      if (error) throw error;
+      return new Response(JSON.stringify({ data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (action === 'dilemmas-save') {
+      const payload = {
+        dilemma_text: data.dilemma_text,
+        likert_scale_type: data.likert_scale_type || 5,
+        display_order: data.display_order || 0,
+        version_tag: data.version_tag,
+        is_active: data.is_active ?? true,
+      };
+
+      let result;
+      if (id) {
+        result = await supabase.from('ethical_dilemmas').update(payload).eq('id', id).select().single();
+      } else {
+        result = await supabase.from('ethical_dilemmas').insert(payload).select().single();
+      }
+
+      if (result.error) throw result.error;
+      return new Response(JSON.stringify({ data: result.data }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    if (action === 'dilemmas-delete') {
+      const { error } = await supabase.from('ethical_dilemmas').delete().eq('id', id);
+      if (error) throw error;
+      return new Response(JSON.stringify({ success: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     return new Response(
