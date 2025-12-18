@@ -37,6 +37,11 @@ export default function AUTManagement() {
     isActive: true,
   });
 
+  // Fetch all stimuli (including inactive) for admin view
+  useEffect(() => {
+    fetchStimuli(false);
+  }, []);
+
   const handleOpenDialog = (stimulus?: AUTStimulus) => {
     if (stimulus) {
       setEditingStimulus(stimulus);
@@ -105,7 +110,7 @@ export default function AUTManagement() {
       } else {
         toast({ title: editingStimulus ? 'Estímulo atualizado!' : 'Estímulo criado!' });
         setIsDialogOpen(false);
-        fetchStimuli();
+        fetchStimuli(false);
       }
     } catch (err) {
       toast({ title: 'Erro', description: 'Erro inesperado.', variant: 'destructive' });
@@ -120,13 +125,13 @@ export default function AUTManagement() {
       toast({ title: 'Erro', description: 'Falha ao remover.', variant: 'destructive' });
     } else {
       toast({ title: 'Estímulo removido.' });
-      fetchStimuli();
+      fetchStimuli(false);
     }
   };
 
   const toggleActive = async (stimulus: AUTStimulus) => {
     await saveStimulus({ ...stimulus, isActive: !stimulus.isActive });
-    fetchStimuli();
+    fetchStimuli(false);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

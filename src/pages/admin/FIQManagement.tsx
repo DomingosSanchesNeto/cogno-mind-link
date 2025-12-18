@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Plus, Edit2, Trash2, Upload, Link, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -35,6 +35,11 @@ export default function FIQManagement() {
     versionTag: '',
     isActive: true,
   });
+
+  // Fetch all stimuli (including inactive) for admin view
+  useEffect(() => {
+    fetchStimuli(false);
+  }, []);
 
   const handleOpenDialog = (stimulus?: FIQStimulus) => {
     if (stimulus) {
@@ -97,7 +102,7 @@ export default function FIQManagement() {
       } else {
         toast({ title: editingStimulus ? 'Estímulo atualizado!' : 'Estímulo criado!' });
         setIsDialogOpen(false);
-        fetchStimuli();
+        fetchStimuli(false);
       }
     } catch (err) {
       toast({ title: 'Erro', description: 'Erro inesperado.', variant: 'destructive' });
@@ -112,13 +117,13 @@ export default function FIQManagement() {
       toast({ title: 'Erro', description: 'Falha ao remover.', variant: 'destructive' });
     } else {
       toast({ title: 'Estímulo removido.' });
-      fetchStimuli();
+      fetchStimuli(false);
     }
   };
 
   const toggleActive = async (stimulus: FIQStimulus) => {
     await saveStimulus({ ...stimulus, isActive: !stimulus.isActive });
-    fetchStimuli();
+    fetchStimuli(false);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

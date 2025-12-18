@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { callAdminApi } from './useAdminAuth';
 import type { AUTStimulus, FIQStimulus, EthicalDilemma, TCLEConfig } from '@/types/experiment';
 
 // Helper to upload file to storage
@@ -27,6 +28,7 @@ export async function uploadToStorage(file: File, path: string): Promise<string 
 // TCLE Hook
 export function useTCLE() {
   const [tcle, setTcle] = useState<TCLEConfig | null>(null);
+  const [allTcles, setAllTcles] = useState<TCLEConfig[]>([]);
   const [loading, setLoading] = useState(true);
 
   const fetchActiveTCLE = useCallback(async () => {
@@ -54,42 +56,45 @@ export function useTCLE() {
     return data;
   }, []);
 
-  const saveTCLE = async (config: Omit<TCLEConfig, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => {
-    // First deactivate all existing TCLEs
-    if (config.isActive) {
-      await supabase
-        .from('tcle_config')
-        .update({ is_active: false })
-        .eq('is_active', true);
+  const fetchAllTCLEs = useCallback(async () => {
+    try {
+      const result = await callAdminApi('tcle-list');
+      if (result.data) {
+        setAllTcles(result.data.map((d: Record<string, unknown>) => ({
+          id: d.id as string,
+          content: d.content as string,
+          fileUrl: (d.file_url as string) || undefined,
+          versionTag: d.version_tag as string,
+          isActive: d.is_active as boolean,
+          createdAt: d.created_at as string,
+          updatedAt: d.updated_at as string,
+        })));
+      }
+    } catch (error) {
+      console.error('Error fetching all TCLEs:', error);
     }
+  }, []);
 
-    if (config.id) {
-      const { error } = await supabase
-        .from('tcle_config')
-        .update({
+  const saveTCLE = async (config: Omit<TCLEConfig, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => {
+    try {
+      await callAdminApi('tcle-save', {
+        id: config.id,
+        data: {
           content: config.content,
           file_url: config.fileUrl,
           version_tag: config.versionTag,
           is_active: config.isActive,
-        })
-        .eq('id', config.id);
-      return { error };
-    } else {
-      const { error } = await supabase
-        .from('tcle_config')
-        .insert({
-          content: config.content,
-          file_url: config.fileUrl,
-          version_tag: config.versionTag,
-          is_active: config.isActive,
-        });
-      return { error };
+        }
+      });
+      return { error: null };
+    } catch (error) {
+      return { error: error instanceof Error ? error : new Error('Unknown error') };
     }
   };
 
   useEffect(() => { fetchActiveTCLE(); }, [fetchActiveTCLE]);
 
-  return { tcle, loading, fetchActiveTCLE, saveTCLE };
+  return { tcle, allTcles, loading, fetchActiveTCLE, fetchAllTCLEs, saveTCLE };
 }
 
 // AUT Stimuli Hook
@@ -99,50 +104,84 @@ export function useAUTStimuli() {
 
   const fetchStimuli = useCallback(async (onlyActive = false) => {
     setLoading(true);
-    let query = supabase.from('aut_stimuli').select('*').order('display_order');
-    if (onlyActive) query = query.eq('is_active', true);
     
-    const { data, error } = await query;
-    
-    if (data) {
-      setStimuli(data.map(s => ({
-        id: s.id,
-        objectName: s.object_name,
-        objectImageUrl: s.image_url || undefined,
-        instructionText: s.instruction_text || '',
-        suggestedTimeSeconds: s.suggested_time_seconds || 180,
-        displayOrder: s.display_order,
-        versionTag: s.version_tag || undefined,
-        isActive: s.is_active,
-      })));
+    if (onlyActive) {
+      // Public read for active stimuli
+      const { data, error } = await supabase
+        .from('aut_stimuli')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order');
+      
+      if (data) {
+        setStimuli(data.map(s => ({
+          id: s.id,
+          objectName: s.object_name,
+          objectImageUrl: s.image_url || undefined,
+          instructionText: s.instruction_text || '',
+          suggestedTimeSeconds: s.suggested_time_seconds || 180,
+          displayOrder: s.display_order,
+          versionTag: s.version_tag || undefined,
+          isActive: s.is_active,
+        })));
+      }
+      setLoading(false);
+      return { data, error };
+    } else {
+      // Admin read via edge function
+      try {
+        const result = await callAdminApi('aut-list');
+        if (result.data) {
+          setStimuli(result.data.map((s: Record<string, unknown>) => ({
+            id: s.id as string,
+            objectName: s.object_name as string,
+            objectImageUrl: (s.image_url as string) || undefined,
+            instructionText: (s.instruction_text as string) || '',
+            suggestedTimeSeconds: (s.suggested_time_seconds as number) || 180,
+            displayOrder: s.display_order as number,
+            versionTag: (s.version_tag as string) || undefined,
+            isActive: s.is_active as boolean,
+          })));
+        }
+        setLoading(false);
+        return { data: result.data, error: null };
+      } catch (error) {
+        setLoading(false);
+        return { data: null, error };
+      }
     }
-    setLoading(false);
-    return { data, error };
   }, []);
 
   const saveStimulus = async (stimulus: Partial<AUTStimulus> & { objectName: string }) => {
-    const payload = {
-      object_name: stimulus.objectName,
-      instruction_text: stimulus.instructionText,
-      image_url: stimulus.objectImageUrl,
-      suggested_time_seconds: stimulus.suggestedTimeSeconds || 180,
-      display_order: stimulus.displayOrder || 0,
-      version_tag: stimulus.versionTag,
-      is_active: stimulus.isActive ?? true,
-    };
-
-    if (stimulus.id) {
-      return supabase.from('aut_stimuli').update(payload).eq('id', stimulus.id);
+    try {
+      await callAdminApi('aut-save', {
+        id: stimulus.id,
+        data: {
+          object_name: stimulus.objectName,
+          instruction_text: stimulus.instructionText,
+          image_url: stimulus.objectImageUrl,
+          suggested_time_seconds: stimulus.suggestedTimeSeconds || 180,
+          display_order: stimulus.displayOrder || 0,
+          version_tag: stimulus.versionTag,
+          is_active: stimulus.isActive ?? true,
+        }
+      });
+      return { error: null };
+    } catch (error) {
+      return { error: error instanceof Error ? error : new Error('Unknown error') };
     }
-    return supabase.from('aut_stimuli').insert(payload);
   };
 
   const deleteStimulus = async (id: string) => {
-    return supabase.from('aut_stimuli').delete().eq('id', id);
+    try {
+      await callAdminApi('aut-delete', { id });
+      return { error: null };
+    } catch (error) {
+      return { error: error instanceof Error ? error : new Error('Unknown error') };
+    }
   };
 
-  useEffect(() => { fetchStimuli(); }, [fetchStimuli]);
-
+  // Don't auto-fetch - let components decide based on auth state
   return { stimuli, loading, fetchStimuli, saveStimulus, deleteStimulus };
 }
 
@@ -153,48 +192,79 @@ export function useFIQStimuli() {
 
   const fetchStimuli = useCallback(async (onlyActive = false) => {
     setLoading(true);
-    let query = supabase.from('fiq_stimuli').select('*').order('display_order');
-    if (onlyActive) query = query.eq('is_active', true);
     
-    const { data, error } = await query;
-    
-    if (data) {
-      setStimuli(data.map(s => ({
-        id: s.id,
-        title: s.title,
-        imageUrl: s.image_url,
-        questionText: s.question_text,
-        displayOrder: s.display_order,
-        versionTag: s.version_tag || undefined,
-        isActive: s.is_active,
-      })));
+    if (onlyActive) {
+      const { data, error } = await supabase
+        .from('fiq_stimuli')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order');
+      
+      if (data) {
+        setStimuli(data.map(s => ({
+          id: s.id,
+          title: s.title,
+          imageUrl: s.image_url,
+          questionText: s.question_text,
+          displayOrder: s.display_order,
+          versionTag: s.version_tag || undefined,
+          isActive: s.is_active,
+        })));
+      }
+      setLoading(false);
+      return { data, error };
+    } else {
+      try {
+        const result = await callAdminApi('fiq-list');
+        if (result.data) {
+          setStimuli(result.data.map((s: Record<string, unknown>) => ({
+            id: s.id as string,
+            title: s.title as string,
+            imageUrl: s.image_url as string,
+            questionText: s.question_text as string,
+            displayOrder: s.display_order as number,
+            versionTag: (s.version_tag as string) || undefined,
+            isActive: s.is_active as boolean,
+          })));
+        }
+        setLoading(false);
+        return { data: result.data, error: null };
+      } catch (error) {
+        setLoading(false);
+        return { data: null, error };
+      }
     }
-    setLoading(false);
-    return { data, error };
   }, []);
 
   const saveStimulus = async (stimulus: Partial<FIQStimulus> & { title: string; imageUrl: string; questionText: string }) => {
-    const payload = {
-      title: stimulus.title,
-      image_url: stimulus.imageUrl,
-      question_text: stimulus.questionText,
-      display_order: stimulus.displayOrder || 0,
-      version_tag: stimulus.versionTag,
-      is_active: stimulus.isActive ?? true,
-    };
-
-    if (stimulus.id) {
-      return supabase.from('fiq_stimuli').update(payload).eq('id', stimulus.id);
+    try {
+      await callAdminApi('fiq-save', {
+        id: stimulus.id,
+        data: {
+          title: stimulus.title,
+          image_url: stimulus.imageUrl,
+          question_text: stimulus.questionText,
+          display_order: stimulus.displayOrder || 0,
+          version_tag: stimulus.versionTag,
+          is_active: stimulus.isActive ?? true,
+        }
+      });
+      return { error: null };
+    } catch (error) {
+      return { error: error instanceof Error ? error : new Error('Unknown error') };
     }
-    return supabase.from('fiq_stimuli').insert(payload);
   };
 
   const deleteStimulus = async (id: string) => {
-    return supabase.from('fiq_stimuli').delete().eq('id', id);
+    try {
+      await callAdminApi('fiq-delete', { id });
+      return { error: null };
+    } catch (error) {
+      return { error: error instanceof Error ? error : new Error('Unknown error') };
+    }
   };
 
-  useEffect(() => { fetchStimuli(); }, [fetchStimuli]);
-
+  // Don't auto-fetch - let components decide based on auth state
   return { stimuli, loading, fetchStimuli, saveStimulus, deleteStimulus };
 }
 
@@ -205,46 +275,76 @@ export function useEthicalDilemmas() {
 
   const fetchDilemmas = useCallback(async (onlyActive = false) => {
     setLoading(true);
-    let query = supabase.from('ethical_dilemmas').select('*').order('display_order');
-    if (onlyActive) query = query.eq('is_active', true);
     
-    const { data, error } = await query;
-    
-    if (data) {
-      setDilemmas(data.map(d => ({
-        id: d.id,
-        dilemmaText: d.dilemma_text,
-        likertScale: '1-5' as const,
-        displayOrder: d.display_order,
-        versionTag: d.version_tag || undefined,
-        isActive: d.is_active,
-      })));
+    if (onlyActive) {
+      const { data, error } = await supabase
+        .from('ethical_dilemmas')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order');
+      
+      if (data) {
+        setDilemmas(data.map(d => ({
+          id: d.id,
+          dilemmaText: d.dilemma_text,
+          likertScale: '1-5' as const,
+          displayOrder: d.display_order,
+          versionTag: d.version_tag || undefined,
+          isActive: d.is_active,
+        })));
+      }
+      setLoading(false);
+      return { data, error };
+    } else {
+      try {
+        const result = await callAdminApi('dilemmas-list');
+        if (result.data) {
+          setDilemmas(result.data.map((d: Record<string, unknown>) => ({
+            id: d.id as string,
+            dilemmaText: d.dilemma_text as string,
+            likertScale: '1-5' as const,
+            displayOrder: d.display_order as number,
+            versionTag: (d.version_tag as string) || undefined,
+            isActive: d.is_active as boolean,
+          })));
+        }
+        setLoading(false);
+        return { data: result.data, error: null };
+      } catch (error) {
+        setLoading(false);
+        return { data: null, error };
+      }
     }
-    setLoading(false);
-    return { data, error };
   }, []);
 
   const saveDilemma = async (dilemma: Partial<EthicalDilemma> & { dilemmaText: string }) => {
-    const payload = {
-      dilemma_text: dilemma.dilemmaText,
-      likert_scale_type: 5,
-      display_order: dilemma.displayOrder || 0,
-      version_tag: dilemma.versionTag,
-      is_active: dilemma.isActive ?? true,
-    };
-
-    if (dilemma.id) {
-      return supabase.from('ethical_dilemmas').update(payload).eq('id', dilemma.id);
+    try {
+      await callAdminApi('dilemmas-save', {
+        id: dilemma.id,
+        data: {
+          dilemma_text: dilemma.dilemmaText,
+          likert_scale_type: 5,
+          display_order: dilemma.displayOrder || 0,
+          version_tag: dilemma.versionTag,
+          is_active: dilemma.isActive ?? true,
+        }
+      });
+      return { error: null };
+    } catch (error) {
+      return { error: error instanceof Error ? error : new Error('Unknown error') };
     }
-    return supabase.from('ethical_dilemmas').insert(payload);
   };
 
   const deleteDilemma = async (id: string) => {
-    return supabase.from('ethical_dilemmas').delete().eq('id', id);
+    try {
+      await callAdminApi('dilemmas-delete', { id });
+      return { error: null };
+    } catch (error) {
+      return { error: error instanceof Error ? error : new Error('Unknown error') };
+    }
   };
 
-  useEffect(() => { fetchDilemmas(); }, [fetchDilemmas]);
-
+  // Don't auto-fetch - let components decide based on auth state
   return { dilemmas, loading, fetchDilemmas, saveDilemma, deleteDilemma };
 }
 
@@ -256,11 +356,6 @@ export function useDashboardStats() {
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
-    
-    // Use service role via edge function would be needed for production
-    // For now, we'll need an edge function to fetch this data securely
-    // This is a placeholder that shows the structure
-    
     setStats({ total: 0, completed: 0, inProgress: 0, declined: 0 });
     setRecentActivity([]);
     setLoading(false);
