@@ -9,17 +9,48 @@ import { Lightbulb, ArrowRight } from 'lucide-react';
 
 export default function AUTScreen() {
   const navigate = useNavigate();
-  const { autStimuli, addAUTResponse, recordScreenStart, recordScreenEnd, setCurrentStep } = useExperiment();
+  const { autStimuli, addAUTResponse, recordScreenStart, recordScreenEnd, setCurrentStep, isLoading } = useExperiment();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [response, setResponse] = useState('');
   const [startTime, setStartTime] = useState<string>('');
   const [imageLoaded, setImageLoaded] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const currentStimulus = autStimuli[currentIndex];
-  const isLastStimulus = currentIndex === autStimuli.length - 1;
 
   useEffect(() => { recordScreenStart('aut'); setCurrentStep(4); }, []);
   useEffect(() => { setStartTime(new Date().toISOString()); setResponse(''); setImageLoaded(false); textareaRef.current?.focus(); }, [currentIndex]);
+
+  // Show loading state while data is being fetched
+  if (isLoading) {
+    return (
+      <ExperimentLayout>
+        <div className="card-academic flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Carregando tarefa...</p>
+          </div>
+        </div>
+      </ExperimentLayout>
+    );
+  }
+
+  // If no stimuli are available, skip to next section
+  if (!autStimuli || autStimuli.length === 0) {
+    return (
+      <ExperimentLayout>
+        <div className="card-academic flex items-center justify-center min-h-[400px]">
+          <div className="text-center space-y-4">
+            <p className="text-muted-foreground">Nenhum estímulo configurado para esta tarefa.</p>
+            <Button onClick={() => { recordScreenEnd('aut'); navigate('/experimento/intro-fiq'); }}>
+              Continuar para próxima tarefa
+            </Button>
+          </div>
+        </div>
+      </ExperimentLayout>
+    );
+  }
+
+  const currentStimulus = autStimuli[currentIndex];
+  const isLastStimulus = currentIndex === autStimuli.length - 1;
 
   const handleNext = () => {
     const now = new Date();
@@ -35,7 +66,7 @@ export default function AUTScreen() {
             <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2"><Lightbulb className="h-4 w-4" /><span>Tarefa 1: Usos Alternativos</span></div>
             <h2 className="font-heading text-xl sm:text-2xl text-foreground">Objeto {currentIndex + 1} de {autStimuli.length}</h2>
           </div>
-          <Timer key={currentIndex} durationSeconds={currentStimulus.suggestedTimeSeconds} />
+          <Timer key={currentIndex} durationSeconds={currentStimulus.suggestedTimeSeconds ?? 180} />
         </div>
         <div className="bg-muted/50 rounded-lg p-4 sm:p-6 mb-6">
           <p className="text-sm text-muted-foreground mb-4">{currentStimulus.instructionText}</p>
