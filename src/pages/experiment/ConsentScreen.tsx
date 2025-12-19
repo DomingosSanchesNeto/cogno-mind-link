@@ -6,6 +6,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useExperiment } from '@/contexts/ExperimentContext';
 import { FileDown } from 'lucide-react';
 import { sanitizeText } from '@/lib/security';
+import { toast } from 'sonner';
 
 export default function ConsentScreen() {
   const navigate = useNavigate();
@@ -43,6 +44,28 @@ export default function ConsentScreen() {
   };
 
   const canProceed = isAdult && hasConsented;
+
+  const handleDownloadPdf = async () => {
+    if (!tcleConfig.fileUrl) return;
+    
+    try {
+      const response = await fetch(tcleConfig.fileUrl);
+      if (!response.ok) throw new Error('Falha ao baixar arquivo');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `TCLE_${tcleConfig.versionTag}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Erro ao baixar PDF:', error);
+      toast.error('Não foi possível baixar o arquivo. Tente novamente.');
+    }
+  };
 
   const renderTcleContent = (content: string) => {
     return content.split('\n').map((line, i) => {
@@ -83,16 +106,13 @@ export default function ConsentScreen() {
             <span className="text-xs text-muted-foreground">{tcleConfig.versionTag}</span>
           </div>
           {tcleConfig.fileUrl && (
-            <a
-              href={tcleConfig.fileUrl}
+            <button
+              onClick={handleDownloadPdf}
               className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-              target="_blank"
-              rel="noopener noreferrer"
-              download
             >
               <FileDown className="h-4 w-4" />
               <span className="hidden sm:inline">Baixar PDF</span>
-            </a>
+            </button>
           )}
         </div>
 
