@@ -53,7 +53,7 @@ export interface FIQStimulus {
 export interface EthicalDilemma {
   id: string;
   dilemmaText: string;
-  likertScale: '1-5';
+  likertScale: '1-5' | '1-7';
   displayOrder: number;
   versionTag?: string;
   isActive: boolean;
