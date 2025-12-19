@@ -9,16 +9,13 @@ import { Scale, ArrowRight } from 'lucide-react';
 
 export default function DilemmasScreen() {
   const navigate = useNavigate();
-  const { dilemmas, addDilemmaResponse, recordScreenStart, recordScreenEnd, setCurrentStep } = useExperiment();
+  const { dilemmas, addDilemmaResponse, recordScreenStart, recordScreenEnd, setCurrentStep, isLoading } = useExperiment();
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [likertValue, setLikertValue] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
   const [justification, setJustification] = useState('');
   const [startTime, setStartTime] = useState<string>('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const currentDilemma = dilemmas[currentIndex];
-  const isLastDilemma = currentIndex === dilemmas.length - 1;
 
   useEffect(() => {
     recordScreenStart('dilemmas');
@@ -30,6 +27,37 @@ export default function DilemmasScreen() {
     setLikertValue(null);
     setJustification('');
   }, [currentIndex]);
+
+  if (isLoading) {
+    return (
+      <ExperimentLayout>
+        <div className="card-academic flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Carregando tarefa...</p>
+          </div>
+        </div>
+      </ExperimentLayout>
+    );
+  }
+
+  if (!dilemmas || dilemmas.length === 0) {
+    return (
+      <ExperimentLayout>
+        <div className="card-academic flex items-center justify-center min-h-[400px]">
+          <div className="text-center space-y-4">
+            <p className="text-muted-foreground">Nenhum dilema configurado para esta tarefa.</p>
+            <Button onClick={() => { recordScreenEnd('dilemmas'); navigate('/experimento/agradecimento'); }}>
+              Finalizar experimento
+            </Button>
+          </div>
+        </div>
+      </ExperimentLayout>
+    );
+  }
+
+  const currentDilemma = dilemmas[currentIndex];
+  const isLastDilemma = currentIndex === dilemmas.length - 1;
 
   const handleNext = () => {
     if (!likertValue) return;
@@ -56,16 +84,6 @@ export default function DilemmasScreen() {
   };
 
   const canProceed = likertValue !== null && justification.trim().length >= 20;
-
-  if (!currentDilemma) {
-    return (
-      <ExperimentLayout>
-        <div className="card-academic text-center">
-          <p>Carregando dilemas...</p>
-        </div>
-      </ExperimentLayout>
-    );
-  }
 
   return (
     <ExperimentLayout>

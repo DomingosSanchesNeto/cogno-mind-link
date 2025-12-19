@@ -8,16 +8,13 @@ import { Eye, ArrowRight } from 'lucide-react';
 
 export default function FIQScreen() {
   const navigate = useNavigate();
-  const { fiqStimuli, addFIQResponse, recordScreenStart, recordScreenEnd, setCurrentStep } = useExperiment();
+  const { fiqStimuli, addFIQResponse, recordScreenStart, recordScreenEnd, setCurrentStep, isLoading } = useExperiment();
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [response, setResponse] = useState('');
   const [startTime, setStartTime] = useState<string>('');
   const [imageLoaded, setImageLoaded] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const currentStimulus = fiqStimuli[currentIndex];
-  const isLastStimulus = currentIndex === fiqStimuli.length - 1;
 
   useEffect(() => {
     recordScreenStart('fiq');
@@ -29,6 +26,37 @@ export default function FIQScreen() {
     setResponse('');
     setImageLoaded(false);
   }, [currentIndex]);
+
+  if (isLoading) {
+    return (
+      <ExperimentLayout>
+        <div className="card-academic flex items-center justify-center min-h-[400px]">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Carregando tarefa...</p>
+          </div>
+        </div>
+      </ExperimentLayout>
+    );
+  }
+
+  if (!fiqStimuli || fiqStimuli.length === 0) {
+    return (
+      <ExperimentLayout>
+        <div className="card-academic flex items-center justify-center min-h-[400px]">
+          <div className="text-center space-y-4">
+            <p className="text-muted-foreground">Nenhum estímulo configurado para esta tarefa.</p>
+            <Button onClick={() => { recordScreenEnd('fiq'); navigate('/experimento/intro-dilemas'); }}>
+              Continuar para próxima tarefa
+            </Button>
+          </div>
+        </div>
+      </ExperimentLayout>
+    );
+  }
+
+  const currentStimulus = fiqStimuli[currentIndex];
+  const isLastStimulus = currentIndex === fiqStimuli.length - 1;
 
   const handleNext = () => {
     const now = new Date();
@@ -54,16 +82,6 @@ export default function FIQScreen() {
   };
 
   const canProceed = response.trim().length >= 20;
-
-  if (!currentStimulus) {
-    return (
-      <ExperimentLayout>
-        <div className="card-academic text-center">
-          <p>Carregando estímulos...</p>
-        </div>
-      </ExperimentLayout>
-    );
-  }
 
   return (
     <ExperimentLayout>
