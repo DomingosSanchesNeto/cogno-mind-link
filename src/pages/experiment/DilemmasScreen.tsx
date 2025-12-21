@@ -108,9 +108,6 @@ export default function DilemmasScreen() {
 
         <div className="space-y-6">
           <div>
-            <label className="text-sm font-medium text-foreground mb-3 block">
-              Você concorda com esta afirmação?
-            </label>
             <div className="flex gap-4 justify-center">
               <button
                 type="button"
