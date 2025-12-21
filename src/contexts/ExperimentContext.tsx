@@ -149,7 +149,6 @@ export function ExperimentProvider({ children }: { children: React.ReactNode }) 
           setDilemmas(dilemmaData.map(d => ({
             id: d.id,
             dilemmaText: d.dilemma_text,
-            likertScale: `1-${d.likert_scale_type}` as '1-5' | '1-7',
             displayOrder: d.display_order,
             versionTag: d.version_tag || undefined,
             isActive: d.is_active,

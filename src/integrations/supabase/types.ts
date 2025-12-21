@@ -138,8 +138,8 @@ export type Database = {
           duration_seconds: number | null
           id: string
           justification: string | null
-          likert_value: number | null
           participant_id: string
+          response_value: string | null
           started_at: string | null
           submitted_at: string | null
           version_tag: string | null
@@ -150,8 +150,8 @@ export type Database = {
           duration_seconds?: number | null
           id?: string
           justification?: string | null
-          likert_value?: number | null
           participant_id: string
+          response_value?: string | null
           started_at?: string | null
           submitted_at?: string | null
           version_tag?: string | null
@@ -162,8 +162,8 @@ export type Database = {
           duration_seconds?: number | null
           id?: string
           justification?: string | null
-          likert_value?: number | null
           participant_id?: string
+          response_value?: string | null
           started_at?: string | null
           submitted_at?: string | null
           version_tag?: string | null
