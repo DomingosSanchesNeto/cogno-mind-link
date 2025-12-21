@@ -1,18 +1,18 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ExperimentLayout } from '@/components/experiment/ExperimentLayout';
-import { LikertScale } from '@/components/experiment/LikertScale';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { useExperiment } from '@/contexts/ExperimentContext';
-import { Scale, ArrowRight } from 'lucide-react';
+import { Scale, ArrowRight, Check, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export default function DilemmasScreen() {
   const navigate = useNavigate();
   const { dilemmas, addDilemmaResponse, recordScreenStart, recordScreenEnd, setCurrentStep, isLoading } = useExperiment();
   
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [likertValue, setLikertValue] = useState<1 | 2 | 3 | 4 | 5 | null>(null);
+  const [responseValue, setResponseValue] = useState<'yes' | 'no' | null>(null);
   const [justification, setJustification] = useState('');
   const [startTime, setStartTime] = useState<string>('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -24,7 +24,7 @@ export default function DilemmasScreen() {
 
   useEffect(() => {
     setStartTime(new Date().toISOString());
-    setLikertValue(null);
+    setResponseValue(null);
     setJustification('');
   }, [currentIndex]);
 
@@ -60,7 +60,7 @@ export default function DilemmasScreen() {
   const isLastDilemma = currentIndex === dilemmas.length - 1;
 
   const handleNext = () => {
-    if (!likertValue) return;
+    if (!responseValue) return;
 
     const now = new Date();
     const startDate = new Date(startTime);
@@ -68,7 +68,7 @@ export default function DilemmasScreen() {
 
     addDilemmaResponse({
       dilemmaId: currentDilemma.id,
-      likertValue,
+      responseValue,
       justification,
       startedAt: startTime,
       submittedAt: now.toISOString(),
@@ -83,7 +83,7 @@ export default function DilemmasScreen() {
     }
   };
 
-  const canProceed = likertValue !== null && justification.trim().length >= 20;
+  const canProceed = responseValue !== null && justification.trim().length >= 20;
 
   return (
     <ExperimentLayout>
@@ -109,9 +109,36 @@ export default function DilemmasScreen() {
         <div className="space-y-6">
           <div>
             <label className="text-sm font-medium text-foreground mb-3 block">
-              Qual o seu grau de concordância com esta afirmação?
+              Você concorda com esta afirmação?
             </label>
-            <LikertScale value={likertValue} onChange={setLikertValue} />
+            <div className="flex gap-4 justify-center">
+              <button
+                type="button"
+                onClick={() => setResponseValue('yes')}
+                className={cn(
+                  'flex items-center gap-2 px-8 py-4 rounded-lg border-2 transition-all font-medium text-lg',
+                  responseValue === 'yes'
+                    ? 'border-green-500 bg-green-500/10 text-green-700 dark:text-green-400'
+                    : 'border-border hover:border-green-500/50 hover:bg-green-500/5'
+                )}
+              >
+                <Check className="h-5 w-5" />
+                Sim
+              </button>
+              <button
+                type="button"
+                onClick={() => setResponseValue('no')}
+                className={cn(
+                  'flex items-center gap-2 px-8 py-4 rounded-lg border-2 transition-all font-medium text-lg',
+                  responseValue === 'no'
+                    ? 'border-red-500 bg-red-500/10 text-red-700 dark:text-red-400'
+                    : 'border-border hover:border-red-500/50 hover:bg-red-500/5'
+                )}
+              >
+                <X className="h-5 w-5" />
+                Não
+              </button>
+            </div>
           </div>
 
           <div className="space-y-3">

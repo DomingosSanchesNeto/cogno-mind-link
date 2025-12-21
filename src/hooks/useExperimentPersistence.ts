@@ -103,7 +103,7 @@ export function useExperimentPersistence() {
       .insert({
         participant_id: dbParticipantId,
         dilemma_id: response.dilemmaId,
-        likert_value: response.likertValue,
+        response_value: response.responseValue,
         justification: response.justification,
         started_at: response.startedAt,
         submitted_at: response.submittedAt,

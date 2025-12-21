@@ -66,7 +66,6 @@ export default function DilemmasManagement() {
       const { error } = await saveDilemma({
         id: editingDilemma?.id,
         dilemmaText: formData.dilemmaText,
-        likertScale: '1-5',
         displayOrder: editingDilemma?.displayOrder || dilemmas.length + 1,
         versionTag: formData.versionTag || undefined,
         isActive: formData.isActive,
@@ -142,7 +141,7 @@ export default function DilemmasManagement() {
               <div className="space-y-2">
                 <Label>Escala de Resposta</Label>
                 <div className="p-3 bg-muted rounded-lg text-sm text-muted-foreground">
-                  Likert 1-5 (Discordo totalmente → Concordo totalmente)
+                  Sim / Não (com justificativa obrigatória)
                 </div>
               </div>
 
@@ -194,7 +193,7 @@ export default function DilemmasManagement() {
                 <div className="flex-1 min-w-0">
                   <p className="text-foreground leading-relaxed">{dilemma.dilemmaText}</p>
                   <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                    <span>Likert 1-5</span>
+                    <span>Sim/Não</span>
                     {dilemma.versionTag && <span>• {dilemma.versionTag}</span>}
                   </div>
                 </div>

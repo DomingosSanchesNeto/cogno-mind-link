@@ -53,7 +53,6 @@ export interface FIQStimulus {
 export interface EthicalDilemma {
   id: string;
   dilemmaText: string;
-  likertScale: '1-5' | '1-7';
   displayOrder: number;
   versionTag?: string;
   isActive: boolean;
@@ -86,7 +85,7 @@ export interface FIQResponse {
 export interface DilemmaResponse {
   participantId: string;
   dilemmaId: string;
-  likertValue: 1 | 2 | 3 | 4 | 5;
+  responseValue: 'yes' | 'no';
   justification: string;
   startedAt: string;
   submittedAt: string;
