@@ -19,8 +19,15 @@ serve(async (req) => {
 
     const { action, password, format, selectedData, data, id } = await req.json();
 
-    // Simple admin password check
-    const adminPassword = Deno.env.get('ADMIN_PASSWORD') || 'admin123';
+    // Admin password from environment variable (no fallback)
+    const adminPassword = Deno.env.get('ADMIN_PASSWORD');
+    if (!adminPassword) {
+      console.error('ADMIN_PASSWORD environment variable not set');
+      return new Response(
+        JSON.stringify({ error: 'Server configuration error' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     if (password !== adminPassword) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),

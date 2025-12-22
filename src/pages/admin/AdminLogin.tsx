@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { supabase } from '@/integrations/supabase/client';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 
 export default function AdminLogin() {
@@ -15,23 +16,32 @@ export default function AdminLogin() {
   const { toast } = useToast();
   const { login } = useAdminAuth();
 
-  // Temporary password for demo - in production, use proper auth
-  const DEMO_PASSWORD = 'admin123';
+  // Password is validated server-side via Edge Function
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
-    // Simulate authentication delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+      // Validate password server-side via Edge Function
+      const { data, error } = await supabase.functions.invoke('admin-api', {
+        body: { action: 'stats', password },
+      });
 
-    if (password === DEMO_PASSWORD) {
-      login(password);
-      navigate('/admin');
-    } else {
+      if (error || data?.error) {
+        toast({
+          title: 'Acesso negado',
+          description: 'Senha incorreta. Tente novamente.',
+          variant: 'destructive',
+        });
+      } else {
+        login(password);
+        navigate('/admin');
+      }
+    } catch {
       toast({
-        title: 'Acesso negado',
-        description: 'Senha incorreta. Tente novamente.',
+        title: 'Erro',
+        description: 'Falha ao validar credenciais.',
         variant: 'destructive',
       });
     }
@@ -86,11 +96,6 @@ export default function AdminLogin() {
           </Button>
         </form>
 
-        <div className="mt-6 p-4 bg-muted/50 rounded-lg">
-          <p className="text-xs text-muted-foreground text-center">
-            <strong>Demo:</strong> Use a senha <code className="bg-muted px-1 py-0.5 rounded">admin123</code>
-          </p>
-        </div>
 
         <div className="mt-6 text-center">
           <Button
