@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Users, CheckCircle2, XCircle, Clock, TrendingUp, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { supabase } from '@/integrations/supabase/client';
+import { callAdminApi } from '@/hooks/useAdminAuth';
 
 export default function Dashboard() {
   const [stats, setStats] = useState({ total: 0, completed: 0, inProgress: 0, declined: 0 });
@@ -11,17 +11,7 @@ export default function Dashboard() {
   const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
-      const adminPassword = sessionStorage.getItem('adminPassword');
-      if (!adminPassword) {
-        console.error('Admin not authenticated');
-        return;
-      }
-      
-      const { data, error } = await supabase.functions.invoke('admin-api', {
-        body: { action: 'stats', password: adminPassword },
-      });
-
-      if (error) throw error;
+      const data = await callAdminApi('stats');
 
       if (data?.stats) {
         setStats(data.stats);
