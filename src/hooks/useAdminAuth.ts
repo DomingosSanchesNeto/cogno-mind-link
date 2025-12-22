@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
-const ADMIN_PASSWORD_KEY = 'admin_password';
+const ADMIN_PASSWORD_KEY = 'adminPassword';
 const ADMIN_AUTH_KEY = 'admin_authenticated';
 
 export function useAdminAuth() {

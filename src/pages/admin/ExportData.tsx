@@ -25,7 +25,11 @@ export default function ExportData() {
     setExporting(true);
     
     try {
-      const adminPassword = sessionStorage.getItem('adminPassword') || 'admin123';
+      const adminPassword = sessionStorage.getItem('adminPassword');
+      if (!adminPassword) {
+        toast({ title: 'Erro', description: 'Não autenticado.', variant: 'destructive' });
+        return;
+      }
       
       const { data, error } = await supabase.functions.invoke('admin-api', {
         body: { 

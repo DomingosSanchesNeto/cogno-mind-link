@@ -11,7 +11,11 @@ export default function Dashboard() {
   const fetchStats = useCallback(async () => {
     setLoading(true);
     try {
-      const adminPassword = sessionStorage.getItem('adminPassword') || 'admin123';
+      const adminPassword = sessionStorage.getItem('adminPassword');
+      if (!adminPassword) {
+        console.error('Admin not authenticated');
+        return;
+      }
       
       const { data, error } = await supabase.functions.invoke('admin-api', {
         body: { action: 'stats', password: adminPassword },
