@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+import { callAdminApi } from '@/hooks/useAdminAuth';
 
 export default function ExportData() {
   const [format, setFormat] = useState<'csv' | 'json'>('csv');
@@ -25,22 +25,7 @@ export default function ExportData() {
     setExporting(true);
     
     try {
-      const adminPassword = sessionStorage.getItem('adminPassword');
-      if (!adminPassword) {
-        toast({ title: 'Erro', description: 'Não autenticado.', variant: 'destructive' });
-        return;
-      }
-      
-      const { data, error } = await supabase.functions.invoke('admin-api', {
-        body: { 
-          action: 'export', 
-          password: adminPassword,
-          format,
-          selectedData 
-        },
-      });
-
-      if (error) throw error;
+      const data = await callAdminApi('export', { format, selectedData });
 
       const blob = new Blob(
         [typeof data === 'string' ? data : JSON.stringify(data, null, 2)],
