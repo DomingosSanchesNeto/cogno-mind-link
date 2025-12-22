@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
+import { useExperimentPersistence } from '@/hooks/useExperimentPersistence';
 import type {
   Participant,
   SociodemographicData,
@@ -49,6 +50,7 @@ interface ExperimentContextType {
   tcleConfig: TCLEConfig;
   setTcleConfig: (c: TCLEConfig) => void;
   participant: Participant | null;
+  dbParticipantId: string | null;
   initializeParticipant: () => void;
   updateParticipantStatus: (s: Participant['status']) => void;
   setParticipantTcleVersion: (v: string) => void;
@@ -80,6 +82,7 @@ const ExperimentContext = createContext<ExperimentContextType | null>(null);
 export function ExperimentProvider({ children }: { children: React.ReactNode }) {
   const [tcleConfig, setTcleConfig] = useState<TCLEConfig>(defaultTcle);
   const [participant, setParticipant] = useState<Participant | null>(null);
+  const [dbParticipantId, setDbParticipantId] = useState<string | null>(null);
   const [sociodemographic, setSociodemographicState] = useState<SociodemographicData | null>(null);
   const [autStimuliState, setAutStimuli] = useState<AUTStimulus[]>([]);
   const [fiqStimuliState, setFiqStimuli] = useState<FIQStimulus[]>([]);
@@ -93,6 +96,12 @@ export function ExperimentProvider({ children }: { children: React.ReactNode }) 
   const [isLoading, setIsLoading] = useState(true);
   const totalSteps = 9;
 
+  // Persistence hook
+  const persistence = useExperimentPersistence();
+
+  // Track screen start times for duration calculation
+  const screenStartTimes = useRef<Record<string, string>>({});
+
   // Load data from Supabase on mount
   useEffect(() => {
     const loadData = async () => {
@@ -104,7 +113,7 @@ export function ExperimentProvider({ children }: { children: React.ReactNode }) 
           .eq('is_active', true)
           .order('created_at', { ascending: false })
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (tcleData) {
           setTcleConfig({
@@ -189,8 +198,8 @@ export function ExperimentProvider({ children }: { children: React.ReactNode }) 
     loadData();
   }, []);
 
-  const initializeParticipant = useCallback(() => {
-    setParticipant({
+  const initializeParticipant = useCallback(async () => {
+    const newParticipant: Participant = {
       id: uuidv4(),
       status: 'in_progress',
       startedAt: new Date().toISOString(),
@@ -198,75 +207,193 @@ export function ExperimentProvider({ children }: { children: React.ReactNode }) 
       userAgent: navigator.userAgent,
       screenResolution: `${window.screen.width}x${window.screen.height}`,
       currentStep: 1,
-    });
-    setRandomizedFIQ([...fiqStimuliState.filter((s) => s.isActive)].sort(() => Math.random() - 0.5));
-  }, [fiqStimuliState]);
+      tcleVersionTag: tcleConfig.versionTag,
+    };
 
-  const updateParticipantStatus = useCallback((status: Participant['status']) => {
+    setParticipant(newParticipant);
+    setRandomizedFIQ([...fiqStimuliState.filter((s) => s.isActive)].sort(() => Math.random() - 0.5));
+
+    // Persist to database
+    try {
+      const { dbId, error } = await persistence.createParticipant(newParticipant);
+      if (error) {
+        console.error('Error creating participant:', error);
+      } else if (dbId) {
+        setDbParticipantId(dbId);
+        console.log('Participant created with DB ID:', dbId);
+      }
+    } catch (error) {
+      console.error('Error persisting participant:', error);
+    }
+  }, [fiqStimuliState, tcleConfig.versionTag, persistence]);
+
+  const updateParticipantStatus = useCallback(async (status: Participant['status']) => {
+    const completedAt = status !== 'in_progress' ? new Date().toISOString() : undefined;
+    
     setParticipant((p) =>
-      p
-        ? {
-            ...p,
-            status,
-            completedAt: status !== 'in_progress' ? new Date().toISOString() : undefined,
-          }
-        : null
+      p ? { ...p, status, completedAt } : null
     );
-  }, []);
+
+    // Persist status update
+    if (participant?.id) {
+      try {
+        const { error } = await persistence.updateParticipantStatus(participant.id, status, completedAt);
+        if (error) {
+          console.error('Error updating participant status:', error);
+        }
+      } catch (error) {
+        console.error('Error persisting participant status:', error);
+      }
+    }
+  }, [participant?.id, persistence]);
 
   const setParticipantTcleVersion = useCallback((v: string) => {
     setParticipant((p) => (p ? { ...p, tcleVersionTag: v } : null));
   }, []);
 
-  const setSociodemographic = useCallback((d: SociodemographicData) => {
+  const setSociodemographic = useCallback(async (d: SociodemographicData) => {
     setSociodemographicState(d);
-  }, []);
+
+    // Persist to database
+    if (dbParticipantId) {
+      try {
+        const { error } = await persistence.saveSociodemographic(dbParticipantId, d);
+        if (error) {
+          console.error('Error saving sociodemographic data:', error);
+        } else {
+          console.log('Sociodemographic data saved');
+        }
+      } catch (error) {
+        console.error('Error persisting sociodemographic:', error);
+      }
+    }
+  }, [dbParticipantId, persistence]);
 
   const addAUTResponse = useCallback(
-    (r: Omit<AUTResponse, 'participantId'>) => {
-      if (participant) setAutResponses((p) => [...p, { ...r, participantId: participant.id }]);
+    async (r: Omit<AUTResponse, 'participantId'>) => {
+      if (!participant) return;
+      
+      const response = { ...r, participantId: participant.id };
+      setAutResponses((p) => [...p, response]);
+
+      // Persist to database
+      if (dbParticipantId) {
+        try {
+          const { error } = await persistence.saveAUTResponse(dbParticipantId, response);
+          if (error) {
+            console.error('Error saving AUT response:', error);
+          } else {
+            console.log('AUT response saved');
+          }
+        } catch (error) {
+          console.error('Error persisting AUT response:', error);
+        }
+      }
     },
-    [participant]
+    [participant, dbParticipantId, persistence]
   );
 
   const addFIQResponse = useCallback(
-    (r: Omit<FIQResponse, 'participantId'>) => {
-      if (participant) setFiqResponses((p) => [...p, { ...r, participantId: participant.id }]);
+    async (r: Omit<FIQResponse, 'participantId'>) => {
+      if (!participant) return;
+      
+      const response = { ...r, participantId: participant.id };
+      setFiqResponses((p) => [...p, response]);
+
+      // Persist to database
+      if (dbParticipantId) {
+        try {
+          const { error } = await persistence.saveFIQResponse(dbParticipantId, response);
+          if (error) {
+            console.error('Error saving FIQ response:', error);
+          } else {
+            console.log('FIQ response saved');
+          }
+        } catch (error) {
+          console.error('Error persisting FIQ response:', error);
+        }
+      }
     },
-    [participant]
+    [participant, dbParticipantId, persistence]
   );
 
   const addDilemmaResponse = useCallback(
-    (r: Omit<DilemmaResponse, 'participantId'>) => {
-      if (participant) setDilemmaResponses((p) => [...p, { ...r, participantId: participant.id }]);
+    async (r: Omit<DilemmaResponse, 'participantId'>) => {
+      if (!participant) return;
+      
+      const response = { ...r, participantId: participant.id };
+      setDilemmaResponses((p) => [...p, response]);
+
+      // Persist to database
+      if (dbParticipantId) {
+        try {
+          const { error } = await persistence.saveDilemmaResponse(dbParticipantId, response);
+          if (error) {
+            console.error('Error saving dilemma response:', error);
+          } else {
+            console.log('Dilemma response saved');
+          }
+        } catch (error) {
+          console.error('Error persisting dilemma response:', error);
+        }
+      }
     },
-    [participant]
+    [participant, dbParticipantId, persistence]
   );
 
   const recordScreenStart = useCallback(
     (screenName: string) => {
-      if (participant)
-        setScreenTimestamps((p) => [
-          ...p,
-          { participantId: participant.id, screenName, startedAt: new Date().toISOString() },
-        ]);
+      if (!participant) return;
+      
+      const startedAt = new Date().toISOString();
+      screenStartTimes.current[screenName] = startedAt;
+      
+      setScreenTimestamps((p) => [
+        ...p,
+        { participantId: participant.id, screenName, startedAt },
+      ]);
     },
     [participant]
   );
 
-  const recordScreenEnd = useCallback((screenName: string) => {
-    setScreenTimestamps((p) => {
-      const i = p.findIndex((t) => t.screenName === screenName && !t.submittedAt);
-      if (i === -1) return p;
-      const u = [...p];
-      u[i] = {
-        ...u[i],
-        submittedAt: new Date().toISOString(),
-        durationSeconds: Math.round((Date.now() - new Date(u[i].startedAt).getTime()) / 1000),
-      };
-      return u;
-    });
-  }, []);
+  const recordScreenEnd = useCallback(
+    async (screenName: string) => {
+      const startedAt = screenStartTimes.current[screenName];
+      if (!startedAt) return;
+
+      const submittedAt = new Date().toISOString();
+      const durationSeconds = Math.round((new Date(submittedAt).getTime() - new Date(startedAt).getTime()) / 1000);
+
+      setScreenTimestamps((p) => {
+        const i = p.findIndex((t) => t.screenName === screenName && !t.submittedAt);
+        if (i === -1) return p;
+        const u = [...p];
+        u[i] = { ...u[i], submittedAt, durationSeconds };
+        return u;
+      });
+
+      // Persist to database
+      if (dbParticipantId && participant) {
+        try {
+          const { error } = await persistence.saveScreenTimestamp(dbParticipantId, {
+            participantId: participant.id,
+            screenName,
+            startedAt,
+            submittedAt,
+            durationSeconds,
+          });
+          if (error) {
+            console.error('Error saving screen timestamp:', error);
+          }
+        } catch (error) {
+          console.error('Error persisting screen timestamp:', error);
+        }
+      }
+
+      delete screenStartTimes.current[screenName];
+    },
+    [dbParticipantId, participant, persistence]
+  );
 
   return (
     <ExperimentContext.Provider
@@ -274,6 +401,7 @@ export function ExperimentProvider({ children }: { children: React.ReactNode }) 
         tcleConfig,
         setTcleConfig,
         participant,
+        dbParticipantId,
         initializeParticipant,
         updateParticipantStatus,
         setParticipantTcleVersion,
