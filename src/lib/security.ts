@@ -78,14 +78,15 @@ export function validateFile(
   return { valid: true };
 }
 
-// Check if admin is authenticated
+// Check if admin is authenticated (JWT token stored in session)
 export function isAdminAuthenticated(): boolean {
-  // In production, this should verify a JWT token or session
-  // For now, using sessionStorage as a basic check
-  return sessionStorage.getItem('admin_authenticated') === 'true';
+  // Checks for JWT token presence - actual verification happens server-side
+  const token = sessionStorage.getItem('admin_token');
+  const auth = sessionStorage.getItem('admin_authenticated');
+  return auth === 'true' && !!token;
 }
 
-// Generate secure session token (for future use with real auth)
+// Generate secure session token (for future use)
 export function generateSessionToken(): string {
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);

@@ -4,8 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
-import { useAdminAuth } from '@/hooks/useAdminAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { useAdminAuth, adminLogin } from '@/hooks/useAdminAuth';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 
 export default function AdminLogin() {
@@ -16,26 +15,23 @@ export default function AdminLogin() {
   const { toast } = useToast();
   const { login } = useAdminAuth();
 
-  // Password is validated server-side via Edge Function
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      // Validate password server-side via Edge Function
-      const { data, error } = await supabase.functions.invoke('admin-api', {
-        body: { action: 'stats', password },
-      });
+      // Login via Edge Function - returns JWT token
+      const result = await adminLogin(password);
 
-      if (error || data?.error) {
+      if (!result.success || !result.token) {
         toast({
           title: 'Acesso negado',
-          description: 'Senha incorreta. Tente novamente.',
+          description: result.error || 'Senha incorreta. Tente novamente.',
           variant: 'destructive',
         });
       } else {
-        login(password);
+        // Store JWT token (not password) for subsequent API calls
+        login(result.token);
         navigate('/admin');
       }
     } catch {

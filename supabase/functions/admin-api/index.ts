@@ -1,10 +1,54 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { create, verify, getNumericDate } from "https://deno.land/x/djwt@v3.0.2/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// JWT configuration
+const JWT_EXPIRATION_HOURS = 2;
+
+// Generate a crypto key from the admin password for JWT signing
+async function getJwtKey(secret: string): Promise<CryptoKey> {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secret);
+  return await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign", "verify"]
+  );
+}
+
+// Create a JWT token
+async function createJwt(secret: string): Promise<string> {
+  const key = await getJwtKey(secret);
+  const jwt = await create(
+    { alg: "HS256", typ: "JWT" },
+    { 
+      admin: true,
+      exp: getNumericDate(JWT_EXPIRATION_HOURS * 60 * 60), // 2 hours from now
+      iat: getNumericDate(0)
+    },
+    key
+  );
+  return jwt;
+}
+
+// Verify a JWT token
+async function verifyJwt(token: string, secret: string): Promise<boolean> {
+  try {
+    const key = await getJwtKey(secret);
+    const payload = await verify(token, key);
+    return payload.admin === true;
+  } catch (error) {
+    console.log('JWT verification failed:', error);
+    return false;
+  }
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -17,9 +61,10 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { action, password, format, selectedData, data, id } = await req.json();
+    const body = await req.json();
+    const { action, password, token, format, selectedData, data, id } = body;
 
-    // Admin password from environment variable (no fallback)
+    // Admin password from environment variable
     const adminPassword = Deno.env.get('ADMIN_PASSWORD');
     if (!adminPassword) {
       console.error('ADMIN_PASSWORD environment variable not set');
@@ -28,7 +73,41 @@ serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-    if (password !== adminPassword) {
+
+    // ============ LOGIN - returns JWT token ============
+    if (action === 'login') {
+      if (password !== adminPassword) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid password' }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Generate JWT token
+      const jwtToken = await createJwt(adminPassword);
+      console.log('Admin login successful, JWT generated');
+      
+      return new Response(
+        JSON.stringify({ success: true, token: jwtToken }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ============ ALL OTHER ACTIONS - require valid JWT ============
+    // First try to validate JWT token
+    let isAuthenticated = false;
+    
+    if (token) {
+      isAuthenticated = await verifyJwt(token, adminPassword);
+    }
+    
+    // Fallback to password check for backward compatibility during transition
+    if (!isAuthenticated && password === adminPassword) {
+      isAuthenticated = true;
+      console.log('Warning: Password-based auth used instead of JWT');
+    }
+
+    if (!isAuthenticated) {
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
