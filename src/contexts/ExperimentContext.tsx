@@ -20,7 +20,7 @@ const DEFAULT_TCLE = `## TERMO DE CONSENTIMENTO LIVRE E ESCLARECIDO (TCLE)
 Explorando os Limites entre Inteligência Artificial e Cognição Humana
 
 ### Pesquisador Responsável
-[Nome do Pesquisador] - pesquisador@universidade.edu.br
+[Nome do Pesquisador] - gabriel.rego@mackenzie.br
 
 ---
 

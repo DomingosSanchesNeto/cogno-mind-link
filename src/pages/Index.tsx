@@ -103,7 +103,7 @@ const Index = () => {
         <div className="max-w-4xl mx-auto px-4 text-center">
           <p className="text-xs text-muted-foreground">
             Pesquisa aprovada pelo Comitê de Ética em Pesquisa • 
-            Para dúvidas: pesquisador@universidade.edu.br
+            Para dúvidas: gabriel.rego@mackenzie.br
           </p>
         </div>
       </footer>
