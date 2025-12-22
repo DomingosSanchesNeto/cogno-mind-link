@@ -56,10 +56,10 @@ export default function ThankYouScreen() {
             gerais ao final do estudo, entre em contato:
           </p>
           <a
-            href="mailto:pesquisador@universidade.edu.br"
+            href="mailto:gabriel.rego@mackenzie.br"
             className="text-primary hover:underline font-medium"
           >
-            pesquisador@universidade.edu.br
+            gabriel.rego@mackenzie.br
           </a>
         </div>
 
