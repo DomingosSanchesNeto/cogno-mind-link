@@ -22,7 +22,7 @@ const formSchema = z.object({
     required_error: 'Selecione sua escolaridade',
   }),
   profession: z.string().min(2, 'Informe sua profissão ou área de atuação').max(100, 'Máximo de 100 caracteres'),
-  socioeconomicLevel: z.enum(['A', 'B', 'C', 'DE'], {
+  socioeconomicLevel: z.enum(['A', 'B', 'C', 'D', 'E'], {
     required_error: 'Selecione uma opção',
   }),
   aiExperience: z.boolean({
@@ -180,12 +180,16 @@ export default function SociodemographicScreen() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="A">Classe A</SelectItem>
-                      <SelectItem value="B">Classe B</SelectItem>
-                      <SelectItem value="C">Classe C</SelectItem>
-                      <SelectItem value="DE">Classe D ou E</SelectItem>
+                      <SelectItem value="A">Classe A — renda familiar superior a 15 salários mínimos</SelectItem>
+                      <SelectItem value="B">Classe B — renda familiar entre 5 e 15 salários mínimos</SelectItem>
+                      <SelectItem value="C">Classe C — renda familiar entre 3 e 5 salários mínimos</SelectItem>
+                      <SelectItem value="D">Classe D — renda familiar entre 1 e 3 salários mínimos</SelectItem>
+                      <SelectItem value="E">Classe E — renda familiar de até 1 salário mínimo</SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Considere a soma aproximada da renda mensal de todas as pessoas que contribuem financeiramente para a sua residência.
+                  </p>
                   <FormMessage />
                 </FormItem>
               )}
