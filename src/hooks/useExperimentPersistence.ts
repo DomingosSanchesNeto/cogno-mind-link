@@ -35,17 +35,34 @@ export function useExperimentPersistence() {
     return { error, dbId };
   };
 
-  // Update participant status
-  const updateParticipantStatus = async (participantId: string, status: string, completedAt?: string) => {
-    const { error } = await supabase
-      .from('participants')
-      .update({ 
-        status, 
-        completed_at: completedAt 
-      })
-      .eq('participant_id', participantId);
-    
-    return { error };
+  // Update participant status via secure edge function
+  // This ensures participants can only update their own records
+  const updateParticipantStatus = async (
+    participantId: string, 
+    status: string, 
+    completedAt?: string,
+    dbParticipantId?: string
+  ) => {
+    // Call edge function instead of direct database update
+    // This validates ownership before updating
+    const { data, error } = await supabase.functions.invoke('participant-update', {
+      body: {
+        participantId,
+        dbParticipantId,
+        status,
+        completedAt,
+      },
+    });
+
+    if (error) {
+      return { error };
+    }
+
+    if (data?.error) {
+      return { error: new Error(data.error) };
+    }
+
+    return { error: null };
   };
 
   // Save sociodemographic data

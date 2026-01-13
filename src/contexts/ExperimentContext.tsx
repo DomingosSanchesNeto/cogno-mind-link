@@ -234,10 +234,15 @@ export function ExperimentProvider({ children }: { children: React.ReactNode }) 
       p ? { ...p, status, completedAt } : null
     );
 
-    // Persist status update
-    if (participant?.id) {
+    // Persist status update via secure edge function
+    if (participant?.id && dbParticipantId) {
       try {
-        const { error } = await persistence.updateParticipantStatus(participant.id, status, completedAt);
+        const { error } = await persistence.updateParticipantStatus(
+          participant.id, 
+          status, 
+          completedAt,
+          dbParticipantId
+        );
         if (error) {
           console.error('Error updating participant status:', error);
         }
@@ -245,7 +250,7 @@ export function ExperimentProvider({ children }: { children: React.ReactNode }) 
         console.error('Error persisting participant status:', error);
       }
     }
-  }, [participant?.id, persistence]);
+  }, [participant?.id, dbParticipantId, persistence]);
 
   const setParticipantTcleVersion = useCallback((v: string) => {
     setParticipant((p) => (p ? { ...p, tcleVersionTag: v } : null));
