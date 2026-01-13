@@ -94,20 +94,15 @@ serve(async (req) => {
     }
 
     // ============ ALL OTHER ACTIONS - require valid JWT ============
-    // First try to validate JWT token
+    // Validate JWT token - no password fallback for security
     let isAuthenticated = false;
     
     if (token) {
       isAuthenticated = await verifyJwt(token, adminPassword);
     }
-    
-    // Fallback to password check for backward compatibility during transition
-    if (!isAuthenticated && password === adminPassword) {
-      isAuthenticated = true;
-      console.log('Warning: Password-based auth used instead of JWT');
-    }
 
     if (!isAuthenticated) {
+      console.log('Authentication failed: Invalid or missing JWT token');
       return new Response(
         JSON.stringify({ error: 'Unauthorized' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -83,7 +83,7 @@ export default function DilemmasScreen() {
     }
   };
 
-  const canProceed = responseValue !== null && justification.trim().length >= 20;
+  const canProceed = responseValue !== null && justification.trim().length >= 20 && justification.trim().length <= 5000;
 
   return (
     <ExperimentLayout>
@@ -145,12 +145,13 @@ export default function DilemmasScreen() {
             <Textarea
               ref={textareaRef}
               value={justification}
-              onChange={(e) => setJustification(e.target.value)}
+              onChange={(e) => setJustification(e.target.value.slice(0, 5000))}
               placeholder="Explique os motivos da sua escolha..."
               className="min-h-[120px] resize-none text-base"
+              maxLength={5000}
             />
             <p className="text-xs text-muted-foreground">
-              Mínimo de 20 caracteres. Sua justificativa é fundamental para a análise.
+              Mínimo de 20 caracteres. Sua justificativa é fundamental para a análise. ({justification.length}/5000)
             </p>
           </div>
         </div>

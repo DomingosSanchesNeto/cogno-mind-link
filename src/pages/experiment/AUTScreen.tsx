@@ -80,11 +80,11 @@ export default function AUTScreen() {
         </div>
         <div className="space-y-3">
           <label className="text-sm font-medium text-foreground">Liste todos os usos alternativos:</label>
-          <Textarea ref={textareaRef} value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Digite suas ideias aqui..." className="min-h-[200px] resize-none text-base" />
-          <p className="text-xs text-muted-foreground">Seja criativo! Não há respostas certas ou erradas.</p>
+          <Textarea ref={textareaRef} value={response} onChange={(e) => setResponse(e.target.value.slice(0, 5000))} placeholder="Digite suas ideias aqui..." className="min-h-[200px] resize-none text-base" maxLength={5000} />
+          <p className="text-xs text-muted-foreground">Seja criativo! Não há respostas certas ou erradas. ({response.length}/5000)</p>
         </div>
         <div className="mt-6 flex justify-end">
-          <Button onClick={handleNext} disabled={response.trim().length < 10} className="h-12 px-6 text-base font-medium">{isLastStimulus ? 'Próxima Tarefa' : 'Próximo Objeto'}<ArrowRight className="ml-2 h-4 w-4" /></Button>
+          <Button onClick={handleNext} disabled={response.trim().length < 10 || response.trim().length > 5000} className="h-12 px-6 text-base font-medium">{isLastStimulus ? 'Próxima Tarefa' : 'Próximo Objeto'}<ArrowRight className="ml-2 h-4 w-4" /></Button>
         </div>
       </div>
     </ExperimentLayout>

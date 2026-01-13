@@ -81,7 +81,7 @@ export default function FIQScreen() {
     }
   };
 
-  const canProceed = response.trim().length >= 20;
+  const canProceed = response.trim().length >= 20 && response.trim().length <= 5000;
 
   return (
     <ExperimentLayout>
@@ -123,12 +123,13 @@ export default function FIQScreen() {
           <Textarea
             ref={textareaRef}
             value={response}
-            onChange={(e) => setResponse(e.target.value)}
+            onChange={(e) => setResponse(e.target.value.slice(0, 5000))}
             placeholder="Descreva suas interpretações, associações e emoções..."
             className="min-h-[150px] resize-none text-base"
+            maxLength={5000}
           />
           <p className="text-xs text-muted-foreground">
-            Mínimo de 20 caracteres. Expresse livremente suas percepções.
+            Mínimo de 20 caracteres. Expresse livremente suas percepções. ({response.length}/5000)
           </p>
         </div>
 
