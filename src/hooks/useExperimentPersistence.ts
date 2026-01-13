@@ -1,3 +1,4 @@
+import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
 import type { 
   Participant, 
@@ -11,22 +12,27 @@ import type {
 export function useExperimentPersistence() {
   // Create participant in database
   const createParticipant = async (participant: Participant) => {
-    const { data, error } = await supabase
-      .from('participants')
-      .insert({
-        participant_id: participant.id,
-        tcle_version_tag: participant.tcleVersionTag,
-        consent_given: true,
-        status: participant.status,
-        device_type: participant.deviceType,
-        user_agent: participant.userAgent,
-        screen_resolution: participant.screenResolution,
-        started_at: participant.startedAt,
-      })
-      .select('id')
-      .single();
-    
-    return { data, error, dbId: data?.id };
+    // IMPORTANT:
+    // We must know the DB primary key (`participants.id`) on the client so we can reference it
+    // in response tables.
+    // If we relied on `insert(...).select(...).single()` the INSERT could succeed but the
+    // returned row would be filtered by RLS (no public SELECT), leaving us without the id.
+    // So we generate the DB id client-side and explicitly insert it.
+    const dbId = uuidv4();
+
+    const { error } = await supabase.from('participants').insert({
+      id: dbId,
+      participant_id: participant.id,
+      tcle_version_tag: participant.tcleVersionTag,
+      consent_given: true,
+      status: participant.status,
+      device_type: participant.deviceType,
+      user_agent: participant.userAgent,
+      screen_resolution: participant.screenResolution,
+      started_at: participant.startedAt,
+    });
+
+    return { error, dbId };
   };
 
   // Update participant status
