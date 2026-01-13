@@ -3,26 +3,75 @@ import { supabase } from '@/integrations/supabase/client';
 import { callAdminApi } from './useAdminAuth';
 import type { AUTStimulus, FIQStimulus, EthicalDilemma, TCLEConfig } from '@/types/experiment';
 
-// Helper to upload file to storage
+// Helper to convert file to base64
+async function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = error => reject(error);
+  });
+}
+
+// Allowed file types for upload
+const ALLOWED_TYPES = [
+  'image/jpeg', 
+  'image/png', 
+  'image/gif', 
+  'image/webp', 
+  'application/pdf', 
+  'application/msword', 
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+];
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+
+// Helper to validate file before upload
+export function validateUploadFile(file: File): { valid: boolean; error?: string } {
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return { 
+      valid: false, 
+      error: 'Tipo de arquivo não permitido. Use: JPEG, PNG, GIF, WebP, PDF ou Word.' 
+    };
+  }
+
+  if (file.size > MAX_FILE_SIZE) {
+    return { 
+      valid: false, 
+      error: 'Arquivo muito grande. Tamanho máximo: 10MB.' 
+    };
+  }
+
+  return { valid: true };
+}
+
+// Helper to upload file to storage via Edge Function (server-side upload)
 export async function uploadToStorage(file: File, path: string): Promise<string | null> {
-  const fileExt = file.name.split('.').pop();
-  const fileName = `${Date.now()}.${fileExt}`;
-  const filePath = `${path}/${fileName}`;
-  
-  const { error } = await supabase.storage
-    .from('experiment-files')
-    .upload(filePath, file);
-  
-  if (error) {
+  // Validate file before attempting upload
+  const validation = validateUploadFile(file);
+  if (!validation.valid) {
+    console.error('File validation error:', validation.error);
+    return null;
+  }
+
+  try {
+    // Convert file to base64 for transmission
+    const fileData = await fileToBase64(file);
+    
+    // Upload via admin API edge function (uses service role)
+    const result = await callAdminApi('upload', {
+      fileData,
+      fileName: file.name,
+      fileType: file.type,
+      fileSize: file.size,
+      path,
+    });
+    
+    return result.url || null;
+  } catch (error) {
     console.error('Upload error:', error);
     return null;
   }
-  
-  const { data: { publicUrl } } = supabase.storage
-    .from('experiment-files')
-    .getPublicUrl(filePath);
-  
-  return publicUrl;
 }
 
 // TCLE Hook

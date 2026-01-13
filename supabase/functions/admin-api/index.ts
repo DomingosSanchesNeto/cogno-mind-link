@@ -344,6 +344,86 @@ serve(async (req) => {
       });
     }
 
+    // ============ FILE UPLOAD ============
+    if (action === 'upload') {
+      const { fileData, fileName, fileType, fileSize, path: uploadPath } = body;
+
+      // Validate file type
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+      if (!allowedTypes.includes(fileType)) {
+        return new Response(
+          JSON.stringify({ error: 'Tipo de arquivo não permitido. Use: JPEG, PNG, GIF, WebP, PDF ou Word.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Validate file size (max 10MB)
+      const maxSize = 10 * 1024 * 1024;
+      if (fileSize > maxSize) {
+        return new Response(
+          JSON.stringify({ error: 'Arquivo muito grande. Tamanho máximo: 10MB.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Validate path
+      const allowedPaths = ['tcle', 'aut-stimuli', 'fiq-stimuli'];
+      if (!allowedPaths.includes(uploadPath)) {
+        return new Response(
+          JSON.stringify({ error: 'Caminho de upload inválido.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      try {
+        // Decode base64 file data
+        const base64Data = fileData.split(',')[1] || fileData;
+        const binaryString = atob(base64Data);
+        const bytes = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i);
+        }
+
+        // Generate unique filename
+        const fileExt = fileName.split('.').pop();
+        const uniqueFileName = `${crypto.randomUUID()}.${fileExt}`;
+        const filePath = `${uploadPath}/${uniqueFileName}`;
+
+        // Upload using service role (bypasses RLS)
+        const { error: uploadError } = await supabase.storage
+          .from('experiment-files')
+          .upload(filePath, bytes, {
+            contentType: fileType,
+            upsert: false,
+          });
+
+        if (uploadError) {
+          console.error('Storage upload error:', uploadError);
+          return new Response(
+            JSON.stringify({ error: 'Falha ao fazer upload do arquivo.' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('experiment-files')
+          .getPublicUrl(filePath);
+
+        console.log('File uploaded successfully:', filePath);
+        return new Response(
+          JSON.stringify({ url: publicUrl }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (uploadError) {
+        console.error('Upload processing error:', uploadError);
+        return new Response(
+          JSON.stringify({ error: 'Erro ao processar arquivo.' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
     // ============ DILEMMAS CRUD ============
     if (action === 'dilemmas-list') {
       const { data, error } = await supabase
