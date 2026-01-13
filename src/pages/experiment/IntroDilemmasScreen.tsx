@@ -36,7 +36,7 @@ export default function IntroDilemmasScreen() {
             cenários hipotéticos envolvendo inteligência artificial.
           </p>
 
-          <div className="bg-muted/50 rounded-lg p-6 mb-8 text-left">
+          <div className="bg-muted/50 rounded-lg p-6 mb-6 text-left">
             <h3 className="font-medium text-foreground mb-3">Instruções:</h3>
             <ul className="space-y-2 text-sm text-muted-foreground">
               <li className="flex items-start gap-2">
@@ -56,6 +56,12 @@ export default function IntroDilemmasScreen() {
                 Sua justificativa é fundamental para a análise.
               </li>
             </ul>
+          </div>
+
+          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-8 text-left">
+            <p className="text-xs text-amber-800 dark:text-amber-200">
+              <strong>Importante:</strong> O experimento segue um fluxo sequencial. Após o envio de cada resposta, não será possível retornar para alterar respostas anteriores. Caso o experimento seja interrompido, será necessário reiniciá-lo desde o início.
+            </p>
           </div>
 
           <Button
