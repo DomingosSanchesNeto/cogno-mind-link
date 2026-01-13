@@ -1,15 +1,57 @@
 // Security utilities for the experiment platform
 
-// Sanitize text to prevent XSS
+// Sanitize text to prevent XSS (removes dangerous tags but preserves readable text)
 export function sanitizeText(text: string): string {
   if (!text) return '';
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#x27;')
-    .replace(/\//g, '&#x2F;');
+  // First decode any existing HTML entities to get the real characters
+  const decoded = decodeHtmlEntities(text);
+  // Then remove any dangerous HTML tags while preserving safe content
+  return decoded
+    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
+    .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
+    .replace(/<iframe\b[^>]*>/gi, '')
+    .replace(/on\w+\s*=/gi, '')
+    .replace(/javascript:/gi, '')
+    .replace(/<(?!\/?(?:p|br|h[1-6]|ul|ol|li|strong|em|b|i|u|span|div|hr)\b)[^>]+>/gi, '');
+}
+
+// Decode HTML entities to display readable text
+export function decodeHtmlEntities(text: string): string {
+  if (!text) return '';
+  const entities: Record<string, string> = {
+    '&amp;': '&',
+    '&lt;': '<',
+    '&gt;': '>',
+    '&quot;': '"',
+    '&#x27;': "'",
+    '&#x2F;': '/',
+    '&apos;': "'",
+    '&#39;': "'",
+    '&#47;': '/',
+    '&nbsp;': ' ',
+    '&ndash;': '\u2013',
+    '&mdash;': '\u2014',
+    '&lsquo;': '\u2018',
+    '&rsquo;': '\u2019',
+    '&ldquo;': '\u201C',
+    '&rdquo;': '\u201D',
+    '&hellip;': '\u2026',
+    '&copy;': '\u00A9',
+    '&reg;': '\u00AE',
+    '&trade;': '\u2122',
+    '&deg;': '\u00B0',
+    '&ordm;': '\u00BA',
+    '&ordf;': '\u00AA',
+  };
+  
+  let result = text;
+  for (const [entity, char] of Object.entries(entities)) {
+    result = result.replace(new RegExp(entity, 'g'), char);
+  }
+  // Handle numeric entities like &#47; or &#x2F;
+  result = result.replace(/&#(\d+);/g, (_, code) => String.fromCharCode(parseInt(code, 10)));
+  result = result.replace(/&#x([0-9a-fA-F]+);/g, (_, code) => String.fromCharCode(parseInt(code, 16)));
+  return result;
 }
 
 // Validate file type for uploads

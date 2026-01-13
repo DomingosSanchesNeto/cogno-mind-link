@@ -45,7 +45,7 @@ export default function IntroDilemmasScreen() {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-primary font-bold">•</span>
-                Selecione seu nível de concordância na escala (1-5).
+                Selecione SIM ou NÃO para cada uma das situações.
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-primary font-bold">•</span>
