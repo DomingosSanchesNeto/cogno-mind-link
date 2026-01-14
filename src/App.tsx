@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ExperimentProvider } from "@/contexts/ExperimentContext";
+import { SessionGuard } from "@/components/experiment/SessionGuard";
 
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
@@ -17,6 +18,7 @@ import IntroDilemmasScreen from "./pages/experiment/IntroDilemmasScreen";
 import DilemmasScreen from "./pages/experiment/DilemmasScreen";
 import ThankYouScreen from "./pages/experiment/ThankYouScreen";
 import DeclinedScreen from "./pages/experiment/DeclinedScreen";
+import ExpiredScreen from "./pages/experiment/ExpiredScreen";
 import AdminLogin from "./pages/admin/AdminLogin";
 import AdminLayout from "./pages/admin/AdminLayout";
 import Dashboard from "./pages/admin/Dashboard";
@@ -44,15 +46,17 @@ const App = () => (
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/experimento/consentimento" element={<ConsentScreen />} />
-            <Route path="/experimento/sociodemografico" element={<SociodemographicScreen />} />
-            <Route path="/experimento/intro-aut" element={<IntroAUTScreen />} />
-            <Route path="/experimento/aut" element={<AUTScreen />} />
-            <Route path="/experimento/intro-fiq" element={<IntroFIQScreen />} />
-            <Route path="/experimento/fiq" element={<FIQScreen />} />
-            <Route path="/experimento/intro-dilemas" element={<IntroDilemmasScreen />} />
-            <Route path="/experimento/dilemas" element={<DilemmasScreen />} />
+            {/* Protected experiment routes with session timeout */}
+            <Route path="/experimento/sociodemografico" element={<SessionGuard><SociodemographicScreen /></SessionGuard>} />
+            <Route path="/experimento/intro-aut" element={<SessionGuard><IntroAUTScreen /></SessionGuard>} />
+            <Route path="/experimento/aut" element={<SessionGuard><AUTScreen /></SessionGuard>} />
+            <Route path="/experimento/intro-fiq" element={<SessionGuard><IntroFIQScreen /></SessionGuard>} />
+            <Route path="/experimento/fiq" element={<SessionGuard><FIQScreen /></SessionGuard>} />
+            <Route path="/experimento/intro-dilemas" element={<SessionGuard><IntroDilemmasScreen /></SessionGuard>} />
+            <Route path="/experimento/dilemas" element={<SessionGuard><DilemmasScreen /></SessionGuard>} />
             <Route path="/experimento/agradecimento" element={<ThankYouScreen />} />
             <Route path="/experimento/encerrado" element={<DeclinedScreen />} />
+            <Route path="/experiment/expired" element={<ExpiredScreen />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin" element={<AdminGuard><AdminLayout /></AdminGuard>}>
               <Route index element={<Dashboard />} />

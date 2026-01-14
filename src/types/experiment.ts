@@ -1,6 +1,9 @@
+// Session timeout in milliseconds (60 minutes)
+export const SESSION_TIMEOUT_MS = 60 * 60 * 1000;
+
 export interface Participant {
   id: string;
-  status: 'in_progress' | 'completed' | 'declined';
+  status: 'in_progress' | 'completed' | 'declined' | 'expired';
   startedAt: string;
   completedAt?: string;
   deviceType: 'mobile' | 'desktop';

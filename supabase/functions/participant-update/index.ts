@@ -6,6 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Session timeout: 60 minutes in milliseconds
+const SESSION_TIMEOUT_MS = 60 * 60 * 1000;
+
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
@@ -30,12 +33,12 @@ serve(async (req) => {
       );
     }
 
-    // Validate status value
-    const validStatuses = ['in_progress', 'completed', 'declined'];
+    // Validate status value (now includes 'expired')
+    const validStatuses = ['in_progress', 'completed', 'declined', 'expired'];
     if (!status || !validStatuses.includes(status)) {
       console.log('Invalid status:', status);
       return new Response(
-        JSON.stringify({ error: 'Invalid status. Must be one of: in_progress, completed, declined' }),
+        JSON.stringify({ error: 'Invalid status. Must be one of: in_progress, completed, declined, expired' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -44,7 +47,7 @@ serve(async (req) => {
     // This prevents unauthorized updates - client must know both dbParticipantId AND participantId
     const { data: existingParticipant, error: fetchError } = await supabase
       .from('participants')
-      .select('id, participant_id, status')
+      .select('id, participant_id, status, started_at')
       .eq('id', dbParticipantId)
       .eq('participant_id', participantId)
       .single();
@@ -57,8 +60,40 @@ serve(async (req) => {
       );
     }
 
-    // Prevent modifying already completed/declined participants
-    if (existingParticipant.status !== 'in_progress' && status === 'in_progress') {
+    // Check session timeout - prevent updates if session has expired
+    if (existingParticipant.started_at) {
+      const startTime = new Date(existingParticipant.started_at).getTime();
+      const now = Date.now();
+      const elapsed = now - startTime;
+
+      // If session has expired and trying to update to anything other than 'expired'
+      if (elapsed >= SESSION_TIMEOUT_MS && status !== 'expired') {
+        console.log('Session expired:', { 
+          dbParticipantId, 
+          startedAt: existingParticipant.started_at,
+          elapsedMinutes: Math.round(elapsed / 60000)
+        });
+
+        // Auto-update status to expired
+        await supabase
+          .from('participants')
+          .update({ status: 'expired', completed_at: new Date().toISOString() })
+          .eq('id', dbParticipantId)
+          .eq('participant_id', participantId);
+
+        return new Response(
+          JSON.stringify({ 
+            error: 'Session expired',
+            expired: true,
+            message: 'O tempo máximo para conclusão do experimento foi excedido.'
+          }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
+
+    // Prevent modifying already completed/declined/expired participants
+    if (['completed', 'declined', 'expired'].includes(existingParticipant.status) && status === 'in_progress') {
       console.log('Cannot revert status to in_progress:', existingParticipant.status);
       return new Response(
         JSON.stringify({ error: 'Cannot revert participant status' }),
@@ -68,7 +103,7 @@ serve(async (req) => {
 
     // Update the participant status using service role (bypasses RLS)
     const updateData: { status: string; completed_at?: string } = { status };
-    if (completedAt && (status === 'completed' || status === 'declined')) {
+    if (completedAt && ['completed', 'declined', 'expired'].includes(status)) {
       updateData.completed_at = completedAt;
     }
 
