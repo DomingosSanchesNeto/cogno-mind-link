@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect, use
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
 import { useExperimentPersistence } from '@/hooks/useExperimentPersistence';
+import { SESSION_TIMEOUT_MS } from '@/types/experiment';
 import type {
   Participant,
   SociodemographicData,
@@ -75,6 +76,8 @@ interface ExperimentContextType {
   setCurrentStep: (s: number) => void;
   totalSteps: number;
   isLoading: boolean;
+  isSessionExpired: boolean;
+  checkSessionExpiration: () => boolean;
 }
 
 const ExperimentContext = createContext<ExperimentContextType | null>(null);
@@ -94,6 +97,7 @@ export function ExperimentProvider({ children }: { children: React.ReactNode }) 
   const [currentStep, setCurrentStep] = useState(1);
   const [randomizedFIQ, setRandomizedFIQ] = useState<FIQStimulus[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSessionExpired, setIsSessionExpired] = useState(false);
   const totalSteps = 9;
 
   // Persistence hook
@@ -101,6 +105,21 @@ export function ExperimentProvider({ children }: { children: React.ReactNode }) 
 
   // Track screen start times for duration calculation
   const screenStartTimes = useRef<Record<string, string>>({});
+
+  // Check if session has expired (60 minutes)
+  const checkSessionExpiration = useCallback(() => {
+    if (!participant?.startedAt) return false;
+    
+    const startTime = new Date(participant.startedAt).getTime();
+    const now = Date.now();
+    const elapsed = now - startTime;
+    
+    if (elapsed >= SESSION_TIMEOUT_MS) {
+      setIsSessionExpired(true);
+      return true;
+    }
+    return false;
+  }, [participant?.startedAt]);
 
   // Load data from Supabase on mount
   useEffect(() => {
@@ -431,6 +450,8 @@ export function ExperimentProvider({ children }: { children: React.ReactNode }) 
         setCurrentStep,
         totalSteps,
         isLoading,
+        isSessionExpired,
+        checkSessionExpiration,
       }}
     >
       {children}
