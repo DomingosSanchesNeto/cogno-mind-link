@@ -3,19 +3,20 @@ import { useNavigate } from 'react-router-dom';
 import { ExperimentLayout } from '@/components/experiment/ExperimentLayout';
 import { Button } from '@/components/ui/button';
 import { useExperiment } from '@/contexts/ExperimentContext';
-import { CheckCircle2, Mail, Shield } from 'lucide-react';
+import { CheckCircle2, Mail, Shield, Check } from 'lucide-react';
 
 export default function ThankYouScreen() {
   const navigate = useNavigate();
-  const { updateParticipantStatus, recordScreenStart, setCurrentStep } = useExperiment();
+  const { recordScreenStart, setCurrentStep } = useExperiment();
 
   useEffect(() => {
     recordScreenStart('thank_you');
     setCurrentStep(9);
-    updateParticipantStatus('completed');
+    // Data persistence already completed in DilemmasScreen before navigation
+    // This screen is purely informational - no action required from user
   }, []);
 
-  const handleFinish = () => {
+  const handleClose = () => {
     navigate('/');
   };
 
@@ -29,6 +30,17 @@ export default function ThankYouScreen() {
         <h2 className="font-heading text-2xl sm:text-3xl text-foreground mb-4">
           Muito obrigado pela sua participação!
         </h2>
+
+        {/* Confirmation message - data already saved */}
+        <div className="bg-success/10 border border-success/30 rounded-lg p-4 mb-6 max-w-md mx-auto">
+          <div className="flex items-center justify-center gap-2 text-success">
+            <Check className="h-5 w-5" />
+            <span className="font-medium">Suas respostas foram registradas com sucesso.</span>
+          </div>
+          <p className="text-sm text-success/80 mt-1">
+            Agradecemos pela sua participação.
+          </p>
+        </div>
 
         <p className="text-muted-foreground mb-8 max-w-lg mx-auto">
           Sua contribuição é fundamental para o avanço da pesquisa científica sobre
@@ -63,8 +75,16 @@ export default function ThankYouScreen() {
           </a>
         </div>
 
-        <Button onClick={handleFinish} className="h-12 px-8 text-base font-medium">
-          Encerrar
+        <p className="text-xs text-muted-foreground mb-4">
+          Você pode fechar esta janela a qualquer momento.
+        </p>
+
+        <Button 
+          onClick={handleClose} 
+          variant="outline"
+          className="h-12 px-8 text-base font-medium"
+        >
+          Fechar
         </Button>
       </div>
     </ExperimentLayout>
