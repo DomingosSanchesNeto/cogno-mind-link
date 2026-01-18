@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils';
 
 export default function DilemmasScreen() {
   const navigate = useNavigate();
-  const { dilemmas, addDilemmaResponse, recordScreenStart, recordScreenEnd, setCurrentStep, isLoading } = useExperiment();
+  const { dilemmas, addDilemmaResponse, recordScreenStart, recordScreenEnd, setCurrentStep, isLoading, updateParticipantStatus } = useExperiment();
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [responseValue, setResponseValue] = useState<'yes' | 'no' | null>(null);
@@ -59,14 +59,15 @@ export default function DilemmasScreen() {
   const currentDilemma = dilemmas[currentIndex];
   const isLastDilemma = currentIndex === dilemmas.length - 1;
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (!responseValue) return;
 
     const now = new Date();
     const startDate = new Date(startTime);
     const durationSeconds = Math.round((now.getTime() - startDate.getTime()) / 1000);
 
-    addDilemmaResponse({
+    // Add the dilemma response (persisted automatically)
+    await addDilemmaResponse({
       dilemmaId: currentDilemma.id,
       responseValue,
       justification,
@@ -77,6 +78,9 @@ export default function DilemmasScreen() {
 
     if (isLastDilemma) {
       recordScreenEnd('dilemmas');
+      // Mark participant as completed BEFORE navigating to thank you screen
+      // This ensures data is saved even if user closes browser on final screen
+      await updateParticipantStatus('completed');
       navigate('/experimento/agradecimento');
     } else {
       setCurrentIndex(prev => prev + 1);
