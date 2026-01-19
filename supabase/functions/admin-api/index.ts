@@ -122,6 +122,8 @@ serve(async (req) => {
         completed: participants?.filter(p => p.status === 'completed').length || 0,
         inProgress: participants?.filter(p => p.status === 'in_progress').length || 0,
         declined: participants?.filter(p => p.status === 'declined').length || 0,
+        expired: participants?.filter(p => p.status === 'expired').length || 0,
+        abandoned: participants?.filter(p => p.status === 'abandoned').length || 0,
       };
 
       const { data: recentData } = await supabase
@@ -138,6 +140,43 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ stats, recentActivity }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // ============ CLEANUP ABANDONED SESSIONS ============
+    if (action === 'cleanup-abandoned') {
+      const sixtyMinutesAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      
+      // Find sessions to update
+      const { data: toUpdate, error: findError } = await supabase
+        .from('participants')
+        .select('id')
+        .eq('status', 'in_progress')
+        .lt('started_at', sixtyMinutesAgo);
+
+      if (findError) throw findError;
+
+      const idsToUpdate = toUpdate?.map(p => p.id) || [];
+      
+      if (idsToUpdate.length > 0) {
+        // Update using service role (bypasses RLS)
+        const { error: updateError } = await supabase
+          .from('participants')
+          .update({ status: 'abandoned' })
+          .in('id', idsToUpdate);
+
+        if (updateError) throw updateError;
+      }
+
+      console.log(`Cleanup: ${idsToUpdate.length} sessions marked as abandoned`);
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          updatedCount: idsToUpdate.length,
+          message: `${idsToUpdate.length} sessões marcadas como abandonadas`
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

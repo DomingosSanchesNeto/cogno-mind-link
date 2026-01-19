@@ -3,7 +3,7 @@ export const SESSION_TIMEOUT_MS = 60 * 60 * 1000;
 
 export interface Participant {
   id: string;
-  status: 'in_progress' | 'completed' | 'declined' | 'expired';
+  status: 'in_progress' | 'completed' | 'declined' | 'expired' | 'abandoned';
   startedAt: string;
   completedAt?: string;
   deviceType: 'mobile' | 'desktop';
@@ -108,4 +108,6 @@ export interface ExperimentStats {
   inProgress: number;
   completed: number;
   declined: number;
+  expired: number;
+  abandoned: number;
 }
